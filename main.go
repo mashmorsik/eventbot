@@ -1,6 +1,7 @@
 package main
 
 import (
+	"eventbot/EditEvents"
 	"eventbot/SendResponse"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -38,8 +39,8 @@ func botSend(bot *tgbotapi.BotAPI) {
 		if update.Message != nil {
 			log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 
-			//userId := update.Message.From.ID
-			//EditEvents.AddUser(userId)
+			userId := update.Message.From.ID
+			EditEvents.AddUser(userId)
 
 			command := update.Message.Text
 			fmt.Println(command)
