@@ -15,7 +15,7 @@ func init() {
 	}
 }
 
-func main() {
+func botStart() *tgbotapi.BotAPI {
 	token, _ := os.LookupEnv("EVENTBOT_TOKEN")
 	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
@@ -26,9 +26,12 @@ func main() {
 
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 
+	return bot
+}
+
+func botSend(bot *tgbotapi.BotAPI) {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
-
 	updates := bot.GetUpdatesChan(u)
 
 	for update := range updates {
@@ -41,6 +44,11 @@ func main() {
 			command := update.Message.Text
 			fmt.Println(command)
 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, SendResponse.SendResponse(command)) //SendResponse()
+			//switch update.Message.Text {
+			//case "open":
+			//	msg.ReplyMarkup = SendResponse.SendCalendar()
+			//
+			//}
 
 			_, err := bot.Send(msg)
 			if err != nil {
@@ -48,4 +56,10 @@ func main() {
 			}
 		}
 	}
+}
+
+func main() {
+	bot := botStart()
+
+	botSend(bot)
 }
