@@ -1,16 +1,23 @@
 package main
 
 import (
-	"eventbot/EditEvents"
 	"eventbot/SendResponse"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/joho/godotenv"
 	"log"
+	"os"
 )
 
-func main() {
+func init() {
+	if err := godotenv.Load(); err != nil {
+		log.Print("No .env file found")
+	}
+}
 
-	bot, err := tgbotapi.NewBotAPI("6668421178:AAEIq5xPhDY17AFGZpz9BxCmFrXU8eopmQo")
+func main() {
+	token, _ := os.LookupEnv("EVENTBOT_TOKEN")
+	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -28,10 +35,11 @@ func main() {
 		if update.Message != nil {
 			log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 
-			userId := update.Message.From.ID
-			EditEvents.AddUser(userId)
+			//userId := update.Message.From.ID
+			//EditEvents.AddUser(userId)
 
 			command := update.Message.Text
+			fmt.Println(command)
 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, SendResponse.SendResponse(command)) //SendResponse()
 
 			_, err := bot.Send(msg)

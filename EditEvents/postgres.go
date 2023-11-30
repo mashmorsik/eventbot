@@ -34,9 +34,9 @@ func IsUser(userId int64) bool {
 	SELECT * FROM users
 	WHERE user_id = ($1)`
 	row := db.QueryRow(sqlGetUserId, userId)
-	if row != nil {
-		panic(row)
-	}
+	//if row != nil {
+	//	panic(row)
+	//}
 	if errors.Is(row.Err(), sql.ErrNoRows) {
 		return false
 	}
