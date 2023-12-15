@@ -1,12 +1,15 @@
 package main
 
 import (
+	"eventbot/EditEvents"
 	"eventbot/SendResponse"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/joho/godotenv"
 	"log"
+	"math/rand"
 	"os"
+	"time"
 )
 
 func init() {
@@ -59,7 +62,25 @@ func botSend(bot *tgbotapi.BotAPI) {
 }
 
 func main() {
-	bot := botStart()
+	//bot := botStart()
+	//botSend(bot)
 
-	botSend(bot)
+	db := EditEvents.ConnectPostgres()
+
+	testId := rand.Int()
+	sqlAddUser := `
+	INSERT INTO users(user_id)
+	VALUES($1)`
+	res, err := db.Exec(sqlAddUser, testId)
+	if err != nil {
+		panic(err)
+	}
+	ra, _ := res.RowsAffected()
+	liId, err := res.LastInsertId()
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Printf("rows affected: %v, last inserted id: %v\n", ra, liId)
+	EditEvents.CreateEvent(int64(testId), "Meeting", time.Now(), true, false, false)
+	EditEvents.GetEventsList(int64(testId))
 }
