@@ -1,15 +1,13 @@
 package main
 
 import (
-	"eventbot/EditEvents"
 	"eventbot/SendResponse"
+	data "eventbot/data"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/joho/godotenv"
 	"log"
-	"math/rand"
 	"os"
-	"time"
 )
 
 func init() {
@@ -62,25 +60,19 @@ func botSend(bot *tgbotapi.BotAPI) {
 }
 
 func main() {
+	db := data.NewData(data.MustConnectPostgres())
+
+	//db.AddUser(6537489206)
+	testId := 6537489202
+
 	//bot := botStart()
 	//botSend(bot)
 
-	db := EditEvents.ConnectPostgres()
-
-	testId := rand.Int()
-	sqlAddUser := `
-	INSERT INTO users(user_id)
-	VALUES($1)`
-	res, err := db.Exec(sqlAddUser, testId)
-	if err != nil {
-		panic(err)
-	}
-	ra, _ := res.RowsAffected()
-	liId, err := res.LastInsertId()
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Printf("rows affected: %v, last inserted id: %v\n", ra, liId)
-	EditEvents.CreateEvent(int64(testId), "Meeting", time.Now(), true, false, false)
-	EditEvents.GetEventsList(int64(testId))
+	//db.CreateEvent(int64(testId), "Holidays", time.Now(), false, false, true)
+	//db.GetEventsList(int64(testId))
+	//db.DeleteEvent(2)
+	//db.UpdateEvent(3, "New Year", time.Now(), false, false, true)
+	//db.DeleteAllEvents(int64(testId))
+	//db.GetUsersList()
+	db.DeleteUser(int64(testId))
 }

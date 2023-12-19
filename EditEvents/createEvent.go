@@ -1,14 +1,14 @@
 package EditEvents
 
-type Event struct {
-	Name    string
-	Date    string
-	Time    string
-	Daily   bool
-	Weekly  bool
-	Monthly bool
-	Yearly  bool
-}
+//type Event struct {
+//	Name    string
+//	Date    string
+//	Time    string
+//	Daily   bool
+//	Weekly  bool
+//	Monthly bool
+//	Yearly  bool
+//}
 
 //func CreateEvent() {
 //	newEvent := Event{}
