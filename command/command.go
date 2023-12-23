@@ -143,7 +143,6 @@ func (u UserEvent) handleNewEvent() error {
 		//		fmt.Println(err)
 		//	}
 		//}
-
 	}
 	return nil
 }
