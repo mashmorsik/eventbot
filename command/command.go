@@ -2,7 +2,7 @@ package command
 
 import (
 	"eventbot/data"
-	send_response "eventbot/send-response"
+	sendresponse "eventbot/send-response"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -101,18 +101,17 @@ func (u UserEvent) HandleCommand() {
 }
 
 func (u UserEvent) handleNewEvent() error {
-
 	v, ok := UsersSteps[u.Message.From.ID]
 	if !ok {
 		UsersSteps[u.Message.From.ID] = &Steps{
 			CurrentStep: NameStep,
 		}
 
-		_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, send_response.AskForName()))
+		_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForName()))
 		return err
 	}
 	if u.Message.Text == "" {
-		send_response.EmptyText()
+		sendresponse.EmptyText()
 		return nil
 	}
 
@@ -120,12 +119,12 @@ func (u UserEvent) handleNewEvent() error {
 	case NameStep:
 		UsersSteps[u.Message.From.ID].Name = u.Message.Text
 		v.CurrentStep = DateStep
-		_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, send_response.AskForDate()))
+		_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForDate()))
 		return err
 	case DateStep:
 		UsersSteps[u.Message.From.ID].Date = u.Message.Text
 		v.CurrentStep = TimeStep
-		_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, send_response.AskForTime()))
+		_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForTime()))
 		return err
 		//case TimeStep:
 		//	UsersSteps[userId].Time = update.Message.Text
