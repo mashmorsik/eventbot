@@ -19,16 +19,6 @@ func NewData(db *sql.DB) *Data {
 	return &Data{db: db}
 }
 
-type Event struct {
-	Name    string
-	Date    string
-	Time    string
-	Daily   bool
-	Weekly  bool
-	Monthly bool
-	Yearly  bool
-}
-
 func MustConnectPostgres() *sql.DB {
 	connectionStr := "postgres://postgres:admin@localhost:5432/reminder_bot?sslmode=disable&application_name=eventbot&connect_timeout=5"
 
@@ -44,7 +34,7 @@ func MustConnectPostgres() *sql.DB {
 	return connection
 }
 
-func (r Data) IsUser(userId int64) bool {
+func (r *Data) IsUser(userId int64) bool {
 	var result int
 
 	sqlGetUserId := `
@@ -59,7 +49,7 @@ func (r Data) IsUser(userId int64) bool {
 	}
 }
 
-func (r Data) AddUser(userId int64) {
+func (r *Data) AddUser(userId int64) {
 	if r.IsUser(userId) == false {
 		sqlAddUser := `
 	INSERT INTO users(user_id)
@@ -75,11 +65,11 @@ func (r Data) AddUser(userId int64) {
 		//}
 		fmt.Printf("rows affected: %v", ra)
 	} else {
-		fmt.Println("User already exists")
+		fmt.Println("BotUser already exists")
 	}
 }
 
-func (r Data) GetUsersList() ([]int64, error) {
+func (r *Data) GetUsersList() ([]int64, error) {
 	var UsersList []int64
 
 	sqlGetUsersList := `
@@ -102,7 +92,7 @@ func (r Data) GetUsersList() ([]int64, error) {
 	return UsersList, nil
 }
 
-func (r Data) DeleteUser(userId int64) {
+func (r *Data) DeleteUser(userId int64) {
 	sqlDeleteEvent := `
 	DELETE FROM users
 	WHERE user_id = $1`
@@ -113,7 +103,7 @@ func (r Data) DeleteUser(userId int64) {
 	}
 }
 
-func (r Data) CreateEvent(userId int64, name string, timeDate time.Time, weekly bool, monthly bool, yearly bool) {
+func (r *Data) CreateEvent(userId int64, name string, timeDate time.Time, weekly bool, monthly bool, yearly bool) {
 
 	sqlCreateEvent := `INSERT INTO events(user_id, name, time_date, weekly, monthly, yearly)
 		VALUES($1, $2, $3, $4, $5, $6)`
@@ -123,11 +113,12 @@ func (r Data) CreateEvent(userId int64, name string, timeDate time.Time, weekly 
 	}
 }
 
-func (r Data) GetEventsList(userId int64) ([]string, error) {
-	var EventsList []string
+func (r *Data) GetEventsList(userId int64) (map[int]string, error) {
+	//var EventsList []string
+	var EventsList = make(map[int]string)
 
 	sqlGetEventsList := `
-	SELECT name FROM events
+	SELECT id, name FROM events
 	WHERE user_id = $1`
 
 	rows, err := r.db.Query(sqlGetEventsList, userId)
@@ -138,11 +129,30 @@ func (r Data) GetEventsList(userId int64) ([]string, error) {
 
 	for rows.Next() {
 		var eventName string
-		if err := rows.Scan(&eventName); err != nil {
+		var id int
+		if err := rows.Scan(&id, &eventName); err != nil {
 			return nil, err
 		}
-		EventsList = append(EventsList, eventName)
+		EventsList[id] = eventName
 	}
+
+	//sqlGetEventsList := `
+	//SELECT name FROM events
+	//WHERE user_id = $1`
+
+	//rows, err := r.db.Query(sqlGetEventsList, userId)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//defer rows.Close()
+	//
+	//for rows.Next() {
+	//	var eventName string
+	//	if err := rows.Scan(&eventName); err != nil {
+	//		return nil, err
+	//	}
+	//	EventsList = append(EventsList, eventName)
+	//}
 
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -151,7 +161,7 @@ func (r Data) GetEventsList(userId int64) ([]string, error) {
 	return EventsList, nil
 }
 
-func (r Data) UpdateEvent(eventId int, name string, timeDate time.Time, weekly bool, monthly bool, yearly bool) {
+func (r *Data) UpdateEvent(eventId int, name string, timeDate time.Time, weekly bool, monthly bool, yearly bool) {
 	sqlUpdateEvent := `
 	UPDATE events
 	SET name = $1, time_date = $2, weekly = $3, monthly = $4, yearly = $5
@@ -163,7 +173,7 @@ func (r Data) UpdateEvent(eventId int, name string, timeDate time.Time, weekly b
 	}
 }
 
-func (r Data) DeleteEvent(eventId int) {
+func (r *Data) DeleteEvent(eventId int) {
 	sqlDeleteEvent := `
 	DELETE FROM events
 	WHERE id = $1`
@@ -174,7 +184,7 @@ func (r Data) DeleteEvent(eventId int) {
 	}
 }
 
-func (r Data) DeleteAllEvents(userId int64) {
+func (r *Data) DeleteAllEvents(userId int64) {
 	sqlDeleteAllEvents := `
 	DELETE FROM events
 	WHERE user_id = $1`
