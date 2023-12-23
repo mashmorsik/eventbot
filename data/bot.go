@@ -1,29 +1,11 @@
 package data
 
 import (
-	"fmt"
+	"eventbot/command"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
 	"os"
 )
-
-var commands = []string{"/newevent", "/myevents", "/edit", "/delete", "/deleteall"}
-var UsersSteps = make(map[int64]*Steps)
-
-const (
-	Name      = "Name"
-	Date      = "Date"
-	Time      = "Time"
-	Frequency = "Frequency"
-)
-
-type Steps struct {
-	Step      string
-	Name      string
-	Date      string
-	Time      string
-	Frequency string
-}
 
 type BotUser struct {
 	UserId  int64
@@ -33,14 +15,15 @@ type BotUser struct {
 
 type Bot struct {
 	bot *tgbotapi.BotAPI
+	db  *Data
 }
 
-func NewBot(bot *tgbotapi.BotAPI) *Bot {
+func NewBot(bot *tgbotapi.BotAPI, db *Data) *Bot {
 	if bot == nil {
 		panic("Bot is nil")
 	}
 
-	return &Bot{bot: bot}
+	return &Bot{bot: bot, db: db}
 }
 
 func BotStart() *tgbotapi.BotAPI {
@@ -57,105 +40,21 @@ func BotStart() *tgbotapi.BotAPI {
 	return bot
 }
 
-func (r *Bot) ReadMessage() {
+func (b *Bot) ReadMessage() {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
-	updates := r.bot.GetUpdatesChan(u)
+	updates := b.bot.GetUpdatesChan(u)
 
 	for update := range updates {
 		if update.Message != nil {
-			userId := update.Message.From.ID
-			msgText := update.Message.Text
-
-			switch msgText {
-			case commands[0]:
-				if v, ok := UsersSteps[userId]; !ok {
-					UsersSteps[userId] = &Steps{
-						Step:      Name,
-						Name:      "",
-						Date:      "",
-						Time:      "",
-						Frequency: "",
-					}
-					msg := tgbotapi.NewMessage(update.Message.Chat.ID, AskForName())
-					_, err := r.bot.Send(msg)
-					if err != nil {
-						fmt.Println(err)
-					}
-				} else {
-					switch v.Step {
-					case Name:
-						UsersSteps[userId].Time = update.Message.Text
-						v.Step = Time
-						msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Name")
-						_, err := r.bot.Send(msg)
-						if err != nil {
-							fmt.Println(err)
-						}
-					case Time:
-						UsersSteps[userId].Time = update.Message.Text
-						v.Step = Frequency
-						msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Time")
-						_, err := r.bot.Send(msg)
-						if err != nil {
-							fmt.Println(err)
-						}
-					case Frequency:
-						UsersSteps[userId].Frequency = update.Message.Text
-						msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Frequency")
-						_, err := r.bot.Send(msg)
-						if err != nil {
-							fmt.Println(err)
-						}
-					}
-				}
-			case commands[1]:
-				db := NewData(MustConnectPostgres())
-				list, _ := db.GetEventsList(userId)
-				var eventslist string
-
-				for _, event := range list {
-					item := "\n/" + event
-					eventslist += item
-				}
-				fmt.Println(userId)
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, eventslist)
-				_, err := r.bot.Send(msg)
-				if err != nil {
-					fmt.Println(err)
-				}
-			case commands[3]:
-				db := NewData(MustConnectPostgres())
-				list, _ := db.GetEventsList(userId)
-				var eventslist = "Which event do you want to delete?"
-
-				for _, event := range list {
-					item := "\n/" + event
-					eventslist += item
-				}
-				fmt.Println(userId)
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, eventslist)
-				_, err := r.bot.Send(msg)
-				if err != nil {
-					fmt.Println(err)
-				}
-			case commands[4]:
-				db := NewData(MustConnectPostgres())
-				db.DeleteAllEvents(userId)
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Your events have been successfully deleted.")
-				_, err := r.bot.Send(msg)
-				if err != nil {
-					fmt.Println(err)
-				}
-			default:
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, WelcomeMessage())
-				_, err := r.bot.Send(msg)
-				if err != nil {
-					fmt.Println(err)
-				}
-			}
+			command.NewUserEvent(b.db, update.Message, b.bot).HandleCommand()
 		}
 	}
+}
+
+type UserMessage struct {
+	UserId int64
+	Text   string
 }
 
 func WelcomeMessage() string {
@@ -185,7 +84,7 @@ func AskHowFrequently() string {
 
 //func (r *Bot) SendMessage() {
 //
-//	msg := tgbotapi.NewMessage(User.ChatId, sendResponse.SendResponse(User.Message))
+//	msg := tgbotapi.NewMessage(User.ChatId, send-response.SendResponse(User.Message))
 //	_, err := r.bot.Send(msg)
 //	if err != nil {
 //		fmt.Println(err)

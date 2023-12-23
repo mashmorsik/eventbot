@@ -1,4 +1,4 @@
-package sendResponse
+package send_response
 
 import (
 	"eventbot/data"
@@ -43,6 +43,10 @@ func WelcomeMessage() string {
 		"\n/edit to update your event, " +
 		"\n/delete to delete one of your events, " +
 		"\n/deleteall to delete all of your events."
+}
+
+func EmptyText() string {
+	return "Write text blyedina"
 }
 
 func AskForName() string {

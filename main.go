@@ -4,7 +4,6 @@ import (
 	data "eventbot/data"
 	"github.com/joho/godotenv"
 	"log"
-	"time"
 )
 
 func init() {
@@ -14,11 +13,11 @@ func init() {
 }
 
 func main() {
-	db := data.NewData(data.MustConnectPostgres())
-	db.AddUser(1480532761)
-
-	db.CreateEvent(1480532761, "Christmas", time.Now(), false, false, true)
-
-	bot := data.NewBot(data.BotStart())
+	//db :=
+	//db.AddUser(1480532761)
+	//
+	//db.CreateEvent(1480532761, "Christmas", time.Now(), false, false, true)
+	//
+	bot := data.NewBot(data.BotStart(), data.NewData(data.MustConnectPostgres()))
 	bot.ReadMessage()
 }
