@@ -1,24 +1,19 @@
-package data
+package main
 
 import (
+	"database/sql"
 	"eventbot/command"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
 	"os"
 )
 
-type BotUser struct {
-	UserId  int64
-	Message string
-	ChatId  int64
-}
-
 type Bot struct {
 	bot *tgbotapi.BotAPI
-	db  *Data
+	db  *sql.DB
 }
 
-func NewBot(bot *tgbotapi.BotAPI, db *Data) *Bot {
+func NewBot(bot *tgbotapi.BotAPI, db *sql.DB) *Bot {
 	if bot == nil {
 		panic("Bot is nil")
 	}

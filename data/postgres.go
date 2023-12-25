@@ -4,7 +4,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
+	"os"
 	"time"
 )
 
@@ -20,7 +24,7 @@ func NewData(db *sql.DB) *Data {
 }
 
 func MustConnectPostgres() *sql.DB {
-	connectionStr := "postgres://postgres:admin@localhost:5432/reminder_bot?sslmode=disable&application_name=eventbot&connect_timeout=5"
+	connectionStr := "postgres://postgres:mysecretpassword@localhost:5432/reminder_bot?sslmode=disable&application_name=eventbot&connect_timeout=5"
 
 	connection, err := sql.Open("postgres", connectionStr)
 	if err != nil {
@@ -29,6 +33,36 @@ func MustConnectPostgres() *sql.DB {
 
 	if err = connection.Ping(); err != nil {
 		panic(err)
+	}
+
+	return mustMigrate(connection)
+}
+
+func mustMigrate(connection *sql.DB) *sql.DB {
+	driver, err := postgres.WithInstance(connection, &postgres.Config{})
+	if err != nil {
+		panic(err)
+	}
+
+	path, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	migrationPath := fmt.Sprintf("file://%s/migration", path)
+	fmt.Printf("migrationPath : %s\n", migrationPath)
+
+	m, err := migrate.NewWithDatabaseInstance(
+		migrationPath,
+		"reminder_bot", driver)
+
+	if err = m.Up(); err != nil {
+		if errors.Is(err, migrate.ErrNoChange) {
+			fmt.Printf("no changes in migration, skip")
+
+		} else {
+			panic(err)
+		}
 	}
 
 	return connection
@@ -49,6 +83,7 @@ func (r *Data) IsUser(userId int64) bool {
 	}
 }
 
+// FIXME add result erorr
 func (r *Data) AddUser(userId int64) {
 	if r.IsUser(userId) == false {
 		sqlAddUser := `
@@ -114,7 +149,6 @@ func (r *Data) CreateEvent(userId int64, name string, timeDate time.Time, weekly
 }
 
 func (r *Data) GetEventsList(userId int64) (map[int]string, error) {
-	//var EventsList []string
 	var EventsList = make(map[int]string)
 
 	sqlGetEventsList := `
@@ -125,9 +159,15 @@ func (r *Data) GetEventsList(userId int64) (map[int]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		if err := rows.Close(); err != nil {
+			panic(err)
+			return
+		}
+	}(rows)
 
 	for rows.Next() {
+		// FIXME: marshall into structure - events
 		var eventName string
 		var id int
 		if err := rows.Scan(&id, &eventName); err != nil {
@@ -173,6 +213,7 @@ func (r *Data) UpdateEvent(eventId int, name string, timeDate time.Time, weekly 
 	}
 }
 
+// FIXME: return error
 func (r *Data) DeleteEvent(eventId int) {
 	sqlDeleteEvent := `
 	DELETE FROM events

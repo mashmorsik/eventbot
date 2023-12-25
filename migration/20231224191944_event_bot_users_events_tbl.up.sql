@@ -13,9 +13,4 @@ create table if not exists public.events
     weekly    bool,
     monthly   bool,
     yearly    bool
--- check only one is true
 );
-
--- drop table public.users;
--- drop table public.events
-
