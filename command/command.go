@@ -6,6 +6,7 @@ import (
 	sendresponse "eventbot/send-response"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"time"
 )
 
 type (
@@ -19,6 +20,7 @@ type (
 		CurrentCommand string
 		CurrentStep    string
 		EventId        int
+		ChatId         int64
 		Name           string
 		Date           string
 		Time           string
@@ -66,6 +68,10 @@ func (u UserEvent) HandleCommand() {
 		currentCommand = u.Message.Command()
 	}
 
+	for t := range time.Tick(1 * time.Second) {
+		go u.handleReminder(t)
+	}
+
 	switch currentCommand {
 	case NewEventCommand:
 		err := u.handleNewEvent()
@@ -107,6 +113,7 @@ func (u UserEvent) handleNewEvent() error {
 		UserCurrentEvent[u.Message.From.ID] = &Steps{
 			CurrentCommand: NewEventCommand,
 			CurrentStep:    NameStep,
+			ChatId:         u.Message.Chat.ID,
 		}
 
 		if _, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForName())); err != nil {
@@ -156,7 +163,7 @@ func (u UserEvent) handleNewEvent() error {
 			yearly = true
 		}
 
-		u.Db.CreateEvent(u.Message.From.ID, UserCurrentEvent[u.Message.From.ID].Name,
+		u.Db.CreateEvent(u.Message.From.ID, UserCurrentEvent[u.Message.From.ID].ChatId, UserCurrentEvent[u.Message.From.ID].Name,
 			sendresponse.MakeDateTimeField(UserCurrentEvent[u.Message.From.ID].Date,
 				UserCurrentEvent[u.Message.From.ID].Time), weekly, monthly, yearly)
 
@@ -371,4 +378,14 @@ func (u UserEvent) handleDefault() error {
 		fmt.Println(err)
 	}
 	return nil
+}
+
+func (u UserEvent) handleReminder(tick time.Time) {
+	var remindEvents, _ = u.Db.FindRemindEvent()
+	for _, v := range remindEvents {
+		_, err := u.Bot.Send(tgbotapi.NewMessage(v.ChatId, "Don't forget about your event"))
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
 }

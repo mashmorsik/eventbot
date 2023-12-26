@@ -5,12 +5,6 @@ import (
 	"time"
 )
 
-var commands = []string{"/newevent", "/myevents", "/edit", "/delete", "/deleteall"}
-
-//type Response struct {
-//	main.BotUser
-//}
-
 type Event struct {
 	Id       int
 	UserId   int64

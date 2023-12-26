@@ -13,13 +13,18 @@ func init() {
 }
 
 func main() {
-	//db :=
 	//db.AddUser(1480532761)
 	//
 	//db.CreateEvent(1480532761, "Christmas", time.Now(), false, false, true)
 	//
-
-	db := data.MustConnectPostgres()
-	bot := NewBot(BotStart(), db)
+	//db := data.NewData(data.MustConnectPostgres())
+	//
+	//_, err := db.FindRemindEvent()
+	//if err != nil {
+	//	return
+	//}
+	bd := data.MustConnectPostgres()
+	bot := NewBot(BotStart(), bd)
 	bot.ReadMessage()
+
 }

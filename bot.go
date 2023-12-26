@@ -47,41 +47,32 @@ func (b *Bot) ReadMessage() {
 	}
 }
 
-type UserMessage struct {
-	UserId int64
-	Text   string
-}
-
-func WelcomeMessage() string {
-	return "Hello! This is a reminder bot. \nSend \n/newevent to create an event " +
-		"\n/myevents to get the list of your events " +
-		"\n/edit to update your event, " +
-		"\n/delete to delete one of your events, " +
-		"\n/deleteall to delete all of your events."
-}
-
-func AskForName() string {
-	return "Write the name of your event."
-}
-
-func AskForDate() string {
-	return "Write the date of your event. Use the YYYY-MM-DD format."
-}
-
-func AskForTime() string {
-	return "Write the time of your event. Use the HH:MM 24h format."
-}
-
-func AskHowFrequently() string {
-	return "Write if I should remind you about this event weekly, monthly or yearly. If you want to be reminded just once, " +
-		"write: Once."
-}
-
-//func (r *Bot) SendMessage() {
+//type UserMessage struct {
+//	UserId int64
+//	Text   string
+//}
 //
-//	msg := tgbotapi.NewMessage(User.ChatId, send-response.SendResponse(User.Message))
-//	_, err := r.bot.Send(msg)
-//	if err != nil {
-//		fmt.Println(err)
-//	}
+//func WelcomeMessage() string {
+//	return "Hello! This is a reminder bot. \nSend \n/newevent to create an event " +
+//		"\n/myevents to get the list of your events " +
+//		"\n/edit to update your event, " +
+//		"\n/delete to delete one of your events, " +
+//		"\n/deleteall to delete all of your events."
+//}
+//
+//func AskForName() string {
+//	return "Write the name of your event."
+//}
+//
+//func AskForDate() string {
+//	return "Write the date of your event. Use the YYYY-MM-DD format."
+//}
+//
+//func AskForTime() string {
+//	return "Write the time of your event. Use the HH:MM 24h format."
+//}
+//
+//func AskHowFrequently() string {
+//	return "Write if I should remind you about this event weekly, monthly or yearly. If you want to be reminded just once, " +
+//		"write: Once."
 //}

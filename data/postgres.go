@@ -16,6 +16,13 @@ type Data struct {
 	db *sql.DB
 }
 
+type Event struct {
+	EventId int
+	UserId  int64
+	Name    string
+	ChatId  int64
+}
+
 func NewData(db *sql.DB) *Data {
 	if db == nil {
 		panic("db is nil")
@@ -138,11 +145,11 @@ func (r *Data) DeleteUser(userId int64) {
 	}
 }
 
-func (r *Data) CreateEvent(userId int64, name string, timeDate time.Time, weekly bool, monthly bool, yearly bool) {
+func (r *Data) CreateEvent(userId int64, chatId int64, name string, timeDate time.Time, weekly bool, monthly bool, yearly bool) {
 
-	sqlCreateEvent := `INSERT INTO events(user_id, name, time_date, weekly, monthly, yearly)
-		VALUES($1, $2, $3, $4, $5, $6)`
-	_, err := r.db.Exec(sqlCreateEvent, userId, name, timeDate, weekly, monthly, yearly)
+	sqlCreateEvent := `INSERT INTO events(user_id, chat_id, name, time_date, weekly, monthly, yearly)
+		VALUES($1, $2, $3, $4, $5, $6, $7)`
+	_, err := r.db.Exec(sqlCreateEvent, userId, chatId, name, timeDate, weekly, monthly, yearly)
 	if err != nil {
 		panic(err)
 	}
@@ -175,24 +182,6 @@ func (r *Data) GetEventsList(userId int64) (map[int]string, error) {
 		}
 		EventsList[id] = eventName
 	}
-
-	//sqlGetEventsList := `
-	//SELECT name FROM events
-	//WHERE user_id = $1`
-
-	//rows, err := r.db.Query(sqlGetEventsList, userId)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//defer rows.Close()
-	//
-	//for rows.Next() {
-	//	var eventName string
-	//	if err := rows.Scan(&eventName); err != nil {
-	//		return nil, err
-	//	}
-	//	EventsList = append(EventsList, eventName)
-	//}
 
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -234,4 +223,44 @@ func (r *Data) DeleteAllEvents(userId int64) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (r *Data) FindRemindEvent() (map[int]*Event, error) {
+	sqlFindRemindEvent := `
+	SELECT id, chat_id, name FROM events
+	WHERE time_date = $1`
+
+	currentTime := time.Now()
+	rows, err := r.db.Query(sqlFindRemindEvent, currentTime)
+	if err != nil {
+		return nil, err
+	}
+	defer func(rows *sql.Rows) {
+		if err := rows.Close(); err != nil {
+			panic(err)
+			return
+		}
+	}(rows)
+
+	var currentEvents = make(map[int]*Event)
+	var id int
+	var chatId int64
+	var name string
+
+	for rows.Next() {
+		if err := rows.Scan(&id, &chatId, &name); err != nil {
+			return nil, err
+		}
+		currentEvents[id] = &Event{
+			Name:   name,
+			ChatId: chatId,
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	fmt.Println("This is the request")
+	fmt.Println(currentEvents)
+	return currentEvents, nil
 }
