@@ -3,6 +3,7 @@ package data
 import (
 	"database/sql"
 	"errors"
+	"eventbot/Logger"
 	"fmt"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -17,10 +18,12 @@ type Data struct {
 }
 
 type Event struct {
-	EventId int
-	UserId  int64
-	Name    string
-	ChatId  int64
+	EventId  int
+	UserId   int64
+	Name     string
+	ChatId   int64
+	TimeDate string
+	Cron     string
 }
 
 func NewData(db *sql.DB) *Data {
@@ -39,7 +42,7 @@ func MustConnectPostgres() *sql.DB {
 	}
 
 	if err = connection.Ping(); err != nil {
-		panic(err)
+		Logger.Sugar.Panic(err)
 	}
 
 	return mustMigrate(connection)
@@ -65,7 +68,7 @@ func mustMigrate(connection *sql.DB) *sql.DB {
 
 	if err = m.Up(); err != nil {
 		if errors.Is(err, migrate.ErrNoChange) {
-			fmt.Printf("no changes in migration, skip")
+			Logger.Sugar.Infoln("no changes in migration, skip")
 
 		} else {
 			panic(err)
@@ -145,11 +148,11 @@ func (r *Data) DeleteUser(userId int64) {
 	}
 }
 
-func (r *Data) CreateEvent(userId int64, chatId int64, name string, timeDate time.Time, weekly bool, monthly bool, yearly bool) {
+func (r *Data) CreateEvent(userId int64, chatId int64, name string, timeDate time.Time, cron string) {
 
-	sqlCreateEvent := `INSERT INTO events(user_id, chat_id, name, time_date, weekly, monthly, yearly)
-		VALUES($1, $2, $3, $4, $5, $6, $7)`
-	_, err := r.db.Exec(sqlCreateEvent, userId, chatId, name, timeDate, weekly, monthly, yearly)
+	sqlCreateEvent := `INSERT INTO events(user_id, chat_id, name, time_date, cron)
+		VALUES($1, $2, $3, $4, $5)`
+	_, err := r.db.Exec(sqlCreateEvent, userId, chatId, name, timeDate, cron)
 	if err != nil {
 		panic(err)
 	}
@@ -188,6 +191,47 @@ func (r *Data) GetEventsList(userId int64) (map[int]string, error) {
 	}
 	fmt.Println(EventsList)
 	return EventsList, nil
+}
+
+func (r *Data) GetAllEvents() (map[int]*Event, error) {
+	sqlFindRemindEvent := `
+	SELECT * FROM events`
+
+	rows, err := r.db.Query(sqlFindRemindEvent)
+	if err != nil {
+		return nil, err
+	}
+	defer func(rows *sql.Rows) {
+		if err := rows.Close(); err != nil {
+			panic(err)
+			return
+		}
+	}(rows)
+
+	var currentEvents = make(map[int]*Event)
+	var (
+		id       int
+		userId   int64
+		chatId   int64
+		name     string
+		timeDate string
+		cron     string
+	)
+
+	for rows.Next() {
+		if err := rows.Scan(&id, &userId, &chatId, &name, &timeDate, &cron); err != nil {
+			return nil, err
+		}
+		currentEvents[id] = &Event{
+			Name:     name,
+			ChatId:   chatId,
+			UserId:   userId,
+			TimeDate: timeDate,
+			Cron:     cron,
+		}
+	}
+
+	return currentEvents, nil
 }
 
 func (r *Data) UpdateEvent(eventId int, name string, timeDate time.Time, weekly bool, monthly bool, yearly bool) {
@@ -230,7 +274,8 @@ func (r *Data) FindRemindEvent() (map[int]*Event, error) {
 	SELECT id, chat_id, name FROM events
 	WHERE time_date = $1`
 
-	currentTime := time.Now()
+	loc, _ := time.LoadLocation("Asia/Shanghai")
+	currentTime := time.Now().In(loc)
 	rows, err := r.db.Query(sqlFindRemindEvent, currentTime)
 	if err != nil {
 		return nil, err

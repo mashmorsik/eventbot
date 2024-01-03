@@ -60,16 +60,14 @@ func (u UserEvent) HandleCommand() {
 
 	u.Db.AddUser(u.Message.From.ID)
 
+	go u.handleReminder()
+
 	var currentCommand string
 	v, ok := UserCurrentEvent[u.Message.From.ID]
 	if ok {
 		currentCommand = v.CurrentCommand
 	} else {
 		currentCommand = u.Message.Command()
-	}
-
-	for t := range time.Tick(1 * time.Second) {
-		go u.handleReminder(t)
 	}
 
 	switch currentCommand {
@@ -145,27 +143,14 @@ func (u UserEvent) handleNewEvent() error {
 	case FrequencyStep:
 		UserCurrentEvent[u.Message.From.ID].Frequency = u.Message.Text
 
-		var weekly bool
-		var monthly bool
-		var yearly bool
+		var cron string
 
-		if UserCurrentEvent[u.Message.From.ID].Frequency == "weekly" {
-			weekly = true
-			monthly = false
-			yearly = false
-		} else if UserCurrentEvent[u.Message.From.ID].Frequency == "monthly" {
-			weekly = false
-			monthly = true
-			yearly = false
-		} else {
-			weekly = false
-			monthly = false
-			yearly = true
-		}
+		cron = sendresponse.StringToCron(UserCurrentEvent[u.Message.From.ID].Date,
+			UserCurrentEvent[u.Message.From.ID].Time, UserCurrentEvent[u.Message.From.ID].Frequency)
 
 		u.Db.CreateEvent(u.Message.From.ID, UserCurrentEvent[u.Message.From.ID].ChatId, UserCurrentEvent[u.Message.From.ID].Name,
 			sendresponse.MakeDateTimeField(UserCurrentEvent[u.Message.From.ID].Date,
-				UserCurrentEvent[u.Message.From.ID].Time), weekly, monthly, yearly)
+				UserCurrentEvent[u.Message.From.ID].Time), cron)
 
 		_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Your event has been successfully created."))
 		if err != nil {
@@ -380,12 +365,25 @@ func (u UserEvent) handleDefault() error {
 	return nil
 }
 
-func (u UserEvent) handleReminder(tick time.Time) {
-	var remindEvents, _ = u.Db.FindRemindEvent()
-	for _, v := range remindEvents {
-		_, err := u.Bot.Send(tgbotapi.NewMessage(v.ChatId, "Don't forget about your event"))
-		if err != nil {
-			fmt.Println(err)
+func (u UserEvent) handleReminder() {
+	for {
+		var remindEvents, _ = u.Db.FindRemindEvent()
+		for _, v := range remindEvents {
+			_, err := u.Bot.Send(tgbotapi.NewMessage(v.ChatId, v.Name))
+			if err != nil {
+				fmt.Println(err)
+			}
+			fmt.Println(v.Name)
 		}
+		time.Sleep(30 * time.Second)
 	}
+}
+
+func (u UserEvent) HandleCronResponse(chatId int64, name string) error {
+	_, err := u.Bot.Send(tgbotapi.NewMessage(chatId, "Don't forget about "+name))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

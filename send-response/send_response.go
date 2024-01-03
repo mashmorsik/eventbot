@@ -1,7 +1,7 @@
 package send_response
 
 import (
-	"fmt"
+	"eventbot/Logger"
 	"time"
 )
 
@@ -40,16 +40,44 @@ func AskForTime() string {
 }
 
 func AskHowFrequently() string {
-	return "Write if I should remind you about this event weekly, monthly or yearly."
+	return "Write if I should remind you about this event once, daily, weekly, monthly or yearly. "
 }
 
 func MakeDateTimeField(Date, ETime string) time.Time {
-	eventTime := Date + " " + ETime
-	finTime, err := time.Parse("2006-01-02 15:04", eventTime)
+	loc, err := time.LoadLocation("Europe/Moscow")
 	if err != nil {
-		fmt.Println(err)
+		Logger.Sugar.Errorln(err)
+		return time.Time{}
+	}
+
+	eventTime := Date + " " + ETime
+	finTime, err := time.ParseInLocation("2006-01-02 15:04", eventTime, loc)
+	if err != nil {
+		Logger.Sugar.Errorln(err)
+		return time.Time{}
 	}
 	return finTime
+}
+
+func StringToCron(date, timeStr, frequency string) string {
+	var cron string
+	switch frequency {
+	case "once":
+		cron = "once"
+	case "daily":
+		cron = timeStr[3:] + " " + timeStr[0:2] + " * * *"
+	case "weekly":
+		weekday, err := time.Parse("2006-01-02", date)
+		if err != nil {
+			panic(err)
+		}
+		cron = timeStr[3:] + " " + timeStr[0:2] + " * * " + weekday.Weekday().String()[0:3]
+	case "monthly":
+		cron = timeStr[3:] + " " + timeStr[0:2] + " " + date[8:] + " * *"
+	case "yearly":
+		cron = timeStr[3:] + " " + timeStr[0:2] + " " + date[8:] + " " + date[5:7] + " *"
+	}
+	return cron
 }
 
 func WhichEventDelete() string {

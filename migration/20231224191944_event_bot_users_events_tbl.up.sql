@@ -11,7 +11,5 @@ create table if not exists public.events
     name      text                     not null,
     check ( name <> '' ),
     time_date timestamp with time zone not null,
-    weekly    bool,
-    monthly   bool,
-    yearly    bool
+    cron      text                     not null
 );
