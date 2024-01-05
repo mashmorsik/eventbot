@@ -19,6 +19,10 @@ func init() {
 func main() {
 	Logger.InitSugarLogger()
 	s := RunEventExecute()
+
+	updateEventsChan := make(chan any)
+	go EventUpdate(updateEventsChan, s)
+
 	defer func() {
 		err := s.Shutdown()
 		if err != nil {
@@ -26,28 +30,34 @@ func main() {
 		}
 	}()
 
-	//db.AddUser(1480532761)
-	//
-
-	//db := data.NewData(data.MustConnectPostgres())
-	//db.CreateEvent(1480532761, 1480532761, "Christmas", time.Now().Local(), false, false, true)
-	//
-	////_, err := db.FindRemindEvent()
-	////if err != nil {
-	////	return
-	////}
-	//fmt.Println(time.Now())
-
-	bot := NewBot(BotStart(), data.MustConnectPostgres())
+	bot := NewBot(BotStart(), data.MustConnectPostgres(), updateEventsChan)
 	bot.ReadMessage()
-	//zone := send_response.MakeDateTimeField("2023-12-29", "11:30")
-	//fmt.Println(zone)
+}
+
+func EventUpdate(ch <-chan any, scheduler gocron.Scheduler) {
+	for e := range ch {
+		Logger.Sugar.Infof("received a new event: %s, rerun all events\n", e)
+		RerunEventExecute(scheduler)
+	}
+}
+
+func RerunEventExecute(scheduler gocron.Scheduler) {
+	for _, j := range scheduler.Jobs() {
+		Logger.Sugar.Debugf("remove event: %s", j.Name())
+
+		err := scheduler.RemoveJob(j.ID())
+		if err != nil {
+			Logger.Sugar.Errorf("remove job fail %v\n", err)
+		}
+	}
+
+	RunEventExecute()
 }
 
 func RunEventExecute() gocron.Scheduler {
 	db := data.MustConnectPostgres()
 	dat := data.NewData(db)
-	ue := command.NewUserEvent(db, nil, BotStart())
+	ue := command.NewUserEvent(db, nil, BotStart(), nil)
 
 	events, err := dat.GetAllEvents()
 	if err != nil {
@@ -73,15 +83,22 @@ func RunEventExecute() gocron.Scheduler {
 		case "once":
 			cronExp = "* * * * *"
 			cronHandler = func() {
-				// FIXME: if time_date <= current time and event not fired, execute and set fired
+				if ue.HandleOnceReminder() != nil {
+					Logger.Sugar.Errorln(err)
+					return
+				}
 			}
 		default:
 			cronExp = event.Cron
 			cronHandler = func() {
-				if ue.HandleCronResponse(event.ChatId, event.Name) != nil {
+				if ue.HandleOnceReminder() != nil {
 					Logger.Sugar.Errorln(err)
 					return
 				}
+				//if ue.HandleCronResponse(event.ChatId, event.Name, event.EventId) != nil {
+				//	Logger.Sugar.Errorln(err)
+				//	return
+				//}
 			}
 		}
 
@@ -97,41 +114,6 @@ func RunEventExecute() gocron.Scheduler {
 		}
 		Logger.Sugar.Info("run cron job id ", e.ID())
 	}
-
-	//// Once
-	//o, err := s.NewJob(
-	//	gocron.OneTimeJob(
-	//		// Get time from DB
-	//		gocron.OneTimeJobStartDateTime(time.Now())),
-	//	gocron.NewTask(
-	//		// Send reminder message
-	//		func() {},
-	//	),
-	//)
-	//if err != nil {
-	//	Logger.Sugar.Panic(err)
-	//}
-	//Logger.Sugar.Info("run cron job id ", o.ID())
-	//
-	//// Daily
-	//d, err := s.NewJob(
-	//	gocron.DailyJob(
-	//		1,
-	//		gocron.NewAtTimes(
-	//			// Get time from DB
-	//			gocron.NewAtTime(10, 30, 0),
-	//		),
-	//	),
-	//	gocron.NewTask(
-	//		// Send reminder message
-	//		func() {},
-	//	),
-	//)
-	//if err != nil {
-	//	Logger.Sugar.Panic(err)
-	//}
-	//
-	//Logger.Sugar.Info("run cron job id ", d.ID())
 
 	s.Start()
 

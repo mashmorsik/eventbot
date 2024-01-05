@@ -11,5 +11,7 @@ create table if not exists public.events
     name      text                     not null,
     check ( name <> '' ),
     time_date timestamp with time zone not null,
-    cron      text                     not null
+    cron      text                     not null,
+    last_fired     timestamp with time zone,
+    disabled    bool                    default false
 );

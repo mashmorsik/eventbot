@@ -18,12 +18,14 @@ type Data struct {
 }
 
 type Event struct {
-	EventId  int
-	UserId   int64
-	Name     string
-	ChatId   int64
-	TimeDate string
-	Cron     string
+	EventId   int
+	UserId    int64
+	Name      string
+	ChatId    int64
+	TimeDate  time.Time
+	Cron      string
+	LastFired time.Time
+	Disabled  bool
 }
 
 func NewData(db *sql.DB) *Data {
@@ -104,10 +106,6 @@ func (r *Data) AddUser(userId int64) {
 			panic(err)
 		}
 		ra, _ := res.RowsAffected()
-		//liId, err := res.LastInsertId()
-		//if err != nil {
-		//	fmt.Println(err)
-		//}
 		fmt.Printf("rows affected: %v", ra)
 	} else {
 		fmt.Println("BotUser already exists")
@@ -150,9 +148,9 @@ func (r *Data) DeleteUser(userId int64) {
 
 func (r *Data) CreateEvent(userId int64, chatId int64, name string, timeDate time.Time, cron string) {
 
-	sqlCreateEvent := `INSERT INTO events(user_id, chat_id, name, time_date, cron)
-		VALUES($1, $2, $3, $4, $5)`
-	_, err := r.db.Exec(sqlCreateEvent, userId, chatId, name, timeDate, cron)
+	sqlCreateEvent := `INSERT INTO events(user_id, chat_id, name, time_date, cron, last_fired)
+		VALUES($1, $2, $3, $4, $5, $6)`
+	_, err := r.db.Exec(sqlCreateEvent, userId, chatId, name, timeDate, cron, time.Time{})
 	if err != nil {
 		panic(err)
 	}
@@ -202,45 +200,49 @@ func (r *Data) GetAllEvents() (map[int]*Event, error) {
 		return nil, err
 	}
 	defer func(rows *sql.Rows) {
-		if err := rows.Close(); err != nil {
+		if err = rows.Close(); err != nil {
 			panic(err)
-			return
 		}
 	}(rows)
 
 	var currentEvents = make(map[int]*Event)
 	var (
-		id       int
-		userId   int64
-		chatId   int64
-		name     string
-		timeDate string
-		cron     string
+		id        int
+		userId    int64
+		chatId    int64
+		name      string
+		timeDate  time.Time
+		cron      string
+		lastFired time.Time
+		disabled  bool
 	)
 
 	for rows.Next() {
-		if err := rows.Scan(&id, &userId, &chatId, &name, &timeDate, &cron); err != nil {
+		if err = rows.Scan(&id, &userId, &chatId, &name, &timeDate, &cron, &lastFired, &disabled); err != nil {
 			return nil, err
 		}
 		currentEvents[id] = &Event{
-			Name:     name,
-			ChatId:   chatId,
-			UserId:   userId,
-			TimeDate: timeDate,
-			Cron:     cron,
+			EventId:   id,
+			Name:      name,
+			ChatId:    chatId,
+			UserId:    userId,
+			TimeDate:  timeDate,
+			Cron:      cron,
+			LastFired: lastFired,
+			Disabled:  disabled,
 		}
 	}
 
 	return currentEvents, nil
 }
 
-func (r *Data) UpdateEvent(eventId int, name string, timeDate time.Time, weekly bool, monthly bool, yearly bool) {
+func (r *Data) UpdateEvent(eventId int, name string, timeDate time.Time, cron string) {
 	sqlUpdateEvent := `
 	UPDATE events
-	SET name = $1, time_date = $2, weekly = $3, monthly = $4, yearly = $5
-	WHERE id = $6`
+	SET name = $1, time_date = $2, cron = $3
+	WHERE id = $4`
 
-	_, err := r.db.Exec(sqlUpdateEvent, name, timeDate, weekly, monthly, yearly, eventId)
+	_, err := r.db.Exec(sqlUpdateEvent, name, timeDate, cron, eventId)
 	if err != nil {
 		panic(err)
 	}
@@ -272,10 +274,11 @@ func (r *Data) DeleteAllEvents(userId int64) {
 func (r *Data) FindRemindEvent() (map[int]*Event, error) {
 	sqlFindRemindEvent := `
 	SELECT id, chat_id, name FROM events
-	WHERE time_date = $1`
+	WHERE time_date < $1 and fired = false`
 
-	loc, _ := time.LoadLocation("Asia/Shanghai")
+	loc, _ := time.LoadLocation("Europe/Moscow")
 	currentTime := time.Now().In(loc)
+	//currentTime := time.Now()
 	rows, err := r.db.Query(sqlFindRemindEvent, currentTime)
 	if err != nil {
 		return nil, err
@@ -308,4 +311,42 @@ func (r *Data) FindRemindEvent() (map[int]*Event, error) {
 	fmt.Println("This is the request")
 	fmt.Println(currentEvents)
 	return currentEvents, nil
+}
+
+func (r *Data) DisabledTrue(eventId int) {
+	sqlDisabledTrue := `
+	UPDATE events
+	SET disabled = true
+	WHERE id = $1`
+
+	_, err := r.db.Exec(sqlDisabledTrue, eventId)
+	if err != nil {
+		Logger.Sugar.Panic(err)
+	}
+}
+
+func (r *Data) DisabledFalse(eventId int) {
+	sqlDisabledFalse := `
+	UPDATE events
+	SET disabled = false
+	WHERE id = $1`
+
+	_, err := r.db.Exec(sqlDisabledFalse, eventId)
+	if err != nil {
+		Logger.Sugar.Panic(err)
+	}
+}
+
+func (r *Data) SetLastFired(lastFired time.Time, eventId int) error {
+	sqlDisabledFalse := `
+	UPDATE events
+	SET last_fired = $1
+	WHERE id = $2`
+
+	_, err := r.db.Exec(sqlDisabledFalse, lastFired, eventId)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

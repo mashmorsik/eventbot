@@ -20,7 +20,9 @@ func WelcomeMessage() string {
 		"\n/myevents to get the list of your events " +
 		"\n/edit to update your event, " +
 		"\n/delete to delete one of your events, " +
-		"\n/deleteall to delete all of your events."
+		"\n/deleteall to delete all of your events, " +
+		"\n/disable to disable one of your events, " +
+		"\n/enable to enable one of your disabled events."
 }
 
 func EmptyText() string {
