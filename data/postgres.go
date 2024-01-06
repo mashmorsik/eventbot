@@ -35,6 +35,10 @@ func NewData(db *sql.DB) *Data {
 	return &Data{db: db}
 }
 
+func (r *Data) Db() *sql.DB {
+	return r.db
+}
+
 func MustConnectPostgres() *sql.DB {
 	connectionStr := "postgres://postgres:mysecretpassword@localhost:5432/reminder_bot?sslmode=disable&application_name=eventbot&connect_timeout=5"
 
@@ -100,15 +104,13 @@ func (r *Data) AddUser(userId int64) {
 	if r.IsUser(userId) == false {
 		sqlAddUser := `
 	INSERT INTO users(user_id)
-	VALUES($1)`
+	VALUES($1) on conflict (user_id) do nothing`
 		res, err := r.db.Exec(sqlAddUser, userId)
 		if err != nil {
 			panic(err)
 		}
 		ra, _ := res.RowsAffected()
 		fmt.Printf("rows affected: %v", ra)
-	} else {
-		fmt.Println("BotUser already exists")
 	}
 }
 
@@ -196,6 +198,52 @@ func (r *Data) GetAllEvents() (map[int]*Event, error) {
 	SELECT * FROM events`
 
 	rows, err := r.db.Query(sqlFindRemindEvent)
+	if err != nil {
+		return nil, err
+	}
+	defer func(rows *sql.Rows) {
+		if err = rows.Close(); err != nil {
+			panic(err)
+		}
+	}(rows)
+
+	var currentEvents = make(map[int]*Event)
+	var (
+		id        int
+		userId    int64
+		chatId    int64
+		name      string
+		timeDate  time.Time
+		cron      string
+		lastFired time.Time
+		disabled  bool
+	)
+
+	for rows.Next() {
+		if err = rows.Scan(&id, &userId, &chatId, &name, &timeDate, &cron, &lastFired, &disabled); err != nil {
+			return nil, err
+		}
+		currentEvents[id] = &Event{
+			EventId:   id,
+			Name:      name,
+			ChatId:    chatId,
+			UserId:    userId,
+			TimeDate:  timeDate,
+			Cron:      cron,
+			LastFired: lastFired,
+			Disabled:  disabled,
+		}
+	}
+
+	return currentEvents, nil
+}
+
+func (r *Data) GetOnceNotFired() (map[int]*Event, error) {
+	sqlGetOnceNotFired := `
+	SELECT * FROM events
+	WHERE last_fired = $1 and cron = $2`
+
+	rows, err := r.db.Query(sqlGetOnceNotFired, time.Time{}, "once")
 	if err != nil {
 		return nil, err
 	}

@@ -3,10 +3,10 @@ package main
 import (
 	"eventbot/Logger"
 	"eventbot/command"
+	"eventbot/cron"
 	"eventbot/data"
-	"github.com/go-co-op/gocron/v2"
+	"github.com/go-co-op/gocron"
 	"github.com/joho/godotenv"
-	"golang.org/x/exp/slog"
 	"log"
 )
 
@@ -18,104 +18,54 @@ func init() {
 
 func main() {
 	Logger.InitSugarLogger()
-	s := RunEventExecute()
 
-	updateEventsChan := make(chan any)
-	go EventUpdate(updateEventsChan, s)
-
-	defer func() {
-		err := s.Shutdown()
-		if err != nil {
-			Logger.Sugar.Errorln(err)
-		}
-	}()
-
-	bot := NewBot(BotStart(), data.MustConnectPostgres(), updateEventsChan)
-	bot.ReadMessage()
-}
-
-func EventUpdate(ch <-chan any, scheduler gocron.Scheduler) {
-	for e := range ch {
-		Logger.Sugar.Infof("received a new event: %s, rerun all events\n", e)
-		RerunEventExecute(scheduler)
-	}
-}
-
-func RerunEventExecute(scheduler gocron.Scheduler) {
-	for _, j := range scheduler.Jobs() {
-		Logger.Sugar.Debugf("remove event: %s", j.Name())
-
-		err := scheduler.RemoveJob(j.ID())
-		if err != nil {
-			Logger.Sugar.Errorf("remove job fail %v\n", err)
-		}
-	}
-
-	RunEventExecute()
-}
-
-func RunEventExecute() gocron.Scheduler {
 	db := data.MustConnectPostgres()
 	dat := data.NewData(db)
-	ue := command.NewUserEvent(db, nil, BotStart(), nil)
+	updateEventsChan := make(chan any)
 
-	events, err := dat.GetAllEvents()
-	if err != nil {
-		Logger.Sugar.Errorln(err)
-		return nil
+	botApi := BotStart()
+	bot := NewBot(BotStart(), db, updateEventsChan)
+
+	ue := command.UserEvent{
+		Data:        dat,
+		Message:     nil,
+		BotAPI:      botApi,
+		RerunEvents: updateEventsChan,
 	}
 
-	s, err := gocron.NewScheduler()
+	s, err := cron.RunScheduler(&ue, dat)
 	if err != nil {
-		Logger.Sugar.Errorln(err)
-		return nil
+		Logger.Sugar.Panic(err)
 	}
 
-	for _, event := range events {
-		Logger.Sugar.Infoln("set new cron job", slog.Any("event", event))
+	//defer func() {
+	//	err = s.Stop()
+	//	if err != nil {
+	//		Logger.Sugar.Errorln(err)
+	//	}
+	//}()
 
-		var (
-			cronExp     string
-			cronHandler func()
-		)
-
-		switch event.Cron {
-		case "once":
-			cronExp = "* * * * *"
-			cronHandler = func() {
-				if ue.HandleOnceReminder() != nil {
-					Logger.Sugar.Errorln(err)
-					return
-				}
-			}
-		default:
-			cronExp = event.Cron
-			cronHandler = func() {
-				if ue.HandleOnceReminder() != nil {
-					Logger.Sugar.Errorln(err)
-					return
-				}
-				//if ue.HandleCronResponse(event.ChatId, event.Name, event.EventId) != nil {
-				//	Logger.Sugar.Errorln(err)
-				//	return
-				//}
-			}
-		}
-
-		e, err := s.NewJob(
-			gocron.CronJob(
-				cronExp,
-				false,
-			),
-			gocron.NewTask(cronHandler),
-		)
+	go func() {
+		err = RerunSchedulerObserver(updateEventsChan, &ue, dat, s)
 		if err != nil {
 			Logger.Sugar.Panic(err)
 		}
-		Logger.Sugar.Info("run cron job id ", e.ID())
+	}()
+
+	bot.ReadMessage()
+}
+
+func RerunSchedulerObserver(ch <-chan any, userEvent *command.UserEvent, data *data.Data, scheduler *gocron.Scheduler,
+) error {
+	for e := range ch {
+		Logger.Sugar.Infof("received a new event: %s, rerun all events", e)
+
+		err := cron.RerunScheduler(userEvent, data, scheduler)
+		if err != nil {
+			return err
+		}
 	}
 
-	s.Start()
-
-	return s
+	Logger.Sugar.Warnf("return from RerunSchedulerObserver")
+	return nil
 }

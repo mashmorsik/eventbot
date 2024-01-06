@@ -20,7 +20,7 @@ func (u UserEvent) handleNewEvent() error {
 			ChatId:         u.Message.Chat.ID,
 		}
 
-		if _, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForName())); err != nil {
+		if _, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForName())); err != nil {
 			return err
 		}
 		return nil
@@ -34,17 +34,17 @@ func (u UserEvent) handleNewEvent() error {
 	case NameStep:
 		UserCurrentEvent[u.Message.From.ID].Name = u.Message.Text
 		v.CurrentStep = DateStep
-		_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForDate()))
+		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForDate()))
 		return err
 	case DateStep:
 		UserCurrentEvent[u.Message.From.ID].Date = u.Message.Text
 		v.CurrentStep = TimeStep
-		_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForTime()))
+		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForTime()))
 		return err
 	case TimeStep:
 		UserCurrentEvent[u.Message.From.ID].Time = u.Message.Text
 		v.CurrentStep = FrequencyStep
-		_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskHowFrequently()))
+		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskHowFrequently()))
 		return err
 	case FrequencyStep:
 		UserCurrentEvent[u.Message.From.ID].Frequency = u.Message.Text
@@ -55,11 +55,11 @@ func (u UserEvent) handleNewEvent() error {
 			UserCurrentEvent[u.Message.From.ID].Time, UserCurrentEvent[u.Message.From.ID].Frequency)
 
 		// make it a struct
-		u.Db.CreateEvent(u.Message.From.ID, UserCurrentEvent[u.Message.From.ID].ChatId, UserCurrentEvent[u.Message.From.ID].Name,
+		u.Data.CreateEvent(u.Message.From.ID, UserCurrentEvent[u.Message.From.ID].ChatId, UserCurrentEvent[u.Message.From.ID].Name,
 			sendresponse.MakeDateTimeField(UserCurrentEvent[u.Message.From.ID].Date,
 				UserCurrentEvent[u.Message.From.ID].Time), cron)
 
-		_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Your event has been successfully created."))
+		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Your event has been successfully created."))
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -84,7 +84,7 @@ func (u UserEvent) handleMyEvents() error {
 
 	response := "Your events: \n" + eventslist
 	fmt.Println(userId)
-	_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, response))
+	_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, response))
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -97,7 +97,7 @@ func (u UserEvent) handleEdit() error {
 	var list map[int]string
 	var eventsList string
 
-	list, err := u.Db.GetEventsList(userId)
+	list, err := u.Data.GetEventsList(userId)
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ func (u UserEvent) handleEdit() error {
 			eventsList += item
 		}
 
-		_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Which event do you want to edit? \n"+eventsList))
+		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Which event do you want to edit? \n"+eventsList))
 		return err
 	}
 	if u.Message.Text == "" {
@@ -134,22 +134,22 @@ func (u UserEvent) handleEdit() error {
 		}
 		fmt.Println(UserCurrentEvent[u.Message.From.ID].EventId)
 		v.CurrentStep = NameStep
-		_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForName()))
+		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForName()))
 		return err
 	case NameStep:
 		UserCurrentEvent[u.Message.From.ID].Name = u.Message.Text
 		v.CurrentStep = DateStep
-		_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForDate()))
+		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForDate()))
 		return err
 	case DateStep:
 		UserCurrentEvent[u.Message.From.ID].Date = u.Message.Text
 		v.CurrentStep = TimeStep
-		_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForTime()))
+		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForTime()))
 		return err
 	case TimeStep:
 		UserCurrentEvent[u.Message.From.ID].Time = u.Message.Text
 		v.CurrentStep = FrequencyStep
-		_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskHowFrequently()))
+		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskHowFrequently()))
 		return err
 	case FrequencyStep:
 		UserCurrentEvent[u.Message.From.ID].Frequency = u.Message.Text
@@ -160,11 +160,11 @@ func (u UserEvent) handleEdit() error {
 			UserCurrentEvent[u.Message.From.ID].Time, UserCurrentEvent[u.Message.From.ID].Frequency)
 
 		// send struct
-		u.Db.UpdateEvent(UserCurrentEvent[u.Message.From.ID].EventId, UserCurrentEvent[u.Message.From.ID].Name,
+		u.Data.UpdateEvent(UserCurrentEvent[u.Message.From.ID].EventId, UserCurrentEvent[u.Message.From.ID].Name,
 			sendresponse.MakeDateTimeField(UserCurrentEvent[u.Message.From.ID].Date,
 				UserCurrentEvent[u.Message.From.ID].Time), cron)
 
-		_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Your event has been successfully edited."))
+		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Your event has been successfully edited."))
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -182,7 +182,7 @@ func (u UserEvent) handleDisable() error {
 
 	userId := u.Message.From.ID
 
-	eventsName, err := u.Db.GetAllEvents()
+	eventsName, err := u.Data.GetAllEvents()
 	if err != nil {
 		return err
 	}
@@ -200,7 +200,7 @@ func (u UserEvent) handleDisable() error {
 			}
 		}
 
-		_, err = u.Bot.Send(tgbotapi.NewMessage(userId, "Which event do you want to disable? \n"+eventsList))
+		_, err = u.BotAPI.Send(tgbotapi.NewMessage(userId, "Which event do you want to disable? \n"+eventsList))
 		if err != nil {
 			return err
 		}
@@ -218,8 +218,8 @@ func (u UserEvent) handleDisable() error {
 
 		fmt.Println(u.Message.Text, eventId)
 
-		u.Db.DisabledTrue(eventId)
-		_, err = u.Bot.Send(tgbotapi.NewMessage(userId, "Event disabled"))
+		u.Data.DisabledTrue(eventId)
+		_, err = u.BotAPI.Send(tgbotapi.NewMessage(userId, "Event disabled"))
 		if err != nil {
 			return err
 		}
@@ -238,7 +238,7 @@ func (u UserEvent) handleEnable() error {
 
 	userId := u.Message.From.ID
 
-	eventsName, err := u.Db.GetAllEvents()
+	eventsName, err := u.Data.GetAllEvents()
 	if err != nil {
 		return err
 	}
@@ -257,12 +257,12 @@ func (u UserEvent) handleEnable() error {
 		}
 
 		if len(eventsList) > 0 {
-			_, err = u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Which event do you want to enable? \n"+eventsList))
+			_, err = u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Which event do you want to enable? \n"+eventsList))
 			if err != nil {
 				return err
 			}
 		} else {
-			_, err = u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "You don't have any disabled events."))
+			_, err = u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "You don't have any disabled events."))
 			if err != nil {
 				return err
 			}
@@ -281,8 +281,8 @@ func (u UserEvent) handleEnable() error {
 
 		fmt.Println(u.Message.Text, eventId)
 
-		u.Db.DisabledFalse(eventId)
-		_, err = u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Event enabled."))
+		u.Data.DisabledFalse(eventId)
+		_, err = u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Event enabled."))
 		if err != nil {
 			return err
 		}
@@ -301,7 +301,7 @@ func (u UserEvent) handleDelete() error {
 
 	userId := u.Message.From.ID
 
-	eventsName, err := u.Db.GetEventsList(userId)
+	eventsName, err := u.Data.GetEventsList(userId)
 	if err != nil {
 		return err
 	}
@@ -317,7 +317,7 @@ func (u UserEvent) handleDelete() error {
 			eventsList += "\n" + event
 		}
 
-		_, err = u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Which event do you want to delete? \n"+eventsList))
+		_, err = u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Which event do you want to delete? \n"+eventsList))
 		if err != nil {
 			return err
 		}
@@ -337,8 +337,8 @@ func (u UserEvent) handleDelete() error {
 
 		fmt.Println(u.Message.Text, eventId)
 
-		u.Db.DeleteEvent(eventId)
-		_, err = u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Event deleted"))
+		u.Data.DeleteEvent(eventId)
+		_, err = u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Event deleted"))
 		if err != nil {
 			return err
 		}
@@ -354,7 +354,7 @@ func (u UserEvent) handleDeleteAll() error {
 	userId := u.Message.From.ID
 	db := data.NewData(data.MustConnectPostgres())
 	db.DeleteAllEvents(userId)
-	_, err := u.Bot.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Your events have been successfully deleted."))
+	_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Your events have been successfully deleted."))
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -365,7 +365,7 @@ func (u UserEvent) handleDeleteAll() error {
 
 func (u UserEvent) handleDefault() error {
 	msg := tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.WelcomeMessage())
-	_, err := u.Bot.Send(msg)
+	_, err := u.BotAPI.Send(msg)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -373,24 +373,21 @@ func (u UserEvent) handleDefault() error {
 }
 
 func (u UserEvent) HandleOnceReminder() error {
-	events, err := u.Db.GetAllEvents()
+	events, err := u.Data.GetOnceNotFired()
 	if err != nil {
-		Logger.Sugar.Panic(err)
+		Logger.Sugar.Errorln("No not fired once events")
+		return err
 	}
-
 	for _, e := range events {
-		if e.Cron == OncePeriod &&
-			time.Now().After(e.TimeDate.In(loc.CurrentLoc)) &&
-			e.LastFired.Equal(time.Time{}) {
-
-			_, err = u.Bot.Send(tgbotapi.NewMessage(e.ChatId, "Don't forget about "+e.Name))
+		if time.Now().After(e.TimeDate.In(loc.CurrentLoc)) {
+			_, err = u.BotAPI.Send(tgbotapi.NewMessage(e.ChatId, "Don't forget about "+e.Name))
 			if err != nil {
-				return errors.New(fmt.Sprintf("u.Bot.Send failed with error: %s", err))
+				return errors.New(fmt.Sprintf("u.BotAPI.Send failed with error: %s", err))
 			}
 
-			err = u.Db.SetLastFired(time.Now(), e.EventId)
+			err = u.Data.SetLastFired(time.Now(), e.EventId)
 			if err != nil {
-				return errors.New(fmt.Sprintf("u.Db.SetLastFired failed with error: %s", err))
+				return errors.New(fmt.Sprintf("u.Data.SetLastFired failed with error: %s", err))
 			}
 		}
 	}
@@ -398,11 +395,33 @@ func (u UserEvent) HandleOnceReminder() error {
 }
 
 func (u UserEvent) HandleCronResponse(chatId int64, name string, eventId int) error {
-	_, err := u.Bot.Send(tgbotapi.NewMessage(chatId, "Don't forget about "+name))
-	err = u.Db.SetLastFired(time.Now(), eventId)
+	events, err := u.Data.GetAllEvents()
 	if err != nil {
-		return err
+		Logger.Sugar.Panic(err)
 	}
 
+	for _, e := range events {
+		if e.Cron != OncePeriod &&
+			time.Now().After(e.TimeDate.In(loc.CurrentLoc)) &&
+			e.LastFired.Equal(time.Time{}) {
+
+			_, err = u.BotAPI.Send(tgbotapi.NewMessage(e.ChatId, "Don't forget about "+e.Name))
+			if err != nil {
+				return errors.New(fmt.Sprintf("u.BotAPI.Send failed with error: %s", err))
+			}
+
+			err = u.Data.SetLastFired(time.Now(), e.EventId)
+			if err != nil {
+				return errors.New(fmt.Sprintf("u.Data.SetLastFired failed with error: %s", err))
+			}
+		}
+	}
 	return nil
+	//_, err := u.BotAPI.Send(tgbotapi.NewMessage(chatId, "Don't forget about "+name))
+	//err = u.Data.SetLastFired(time.Now(), eventId)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//return nil
 }

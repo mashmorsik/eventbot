@@ -10,9 +10,9 @@ import (
 
 type (
 	UserEvent struct {
-		Db          *data.Data
+		Data        *data.Data
 		Message     *tgbotapi.Message
-		Bot         *tgbotapi.BotAPI
+		BotAPI      *tgbotapi.BotAPI
 		RerunEvents chan any
 	}
 
@@ -35,7 +35,7 @@ type (
 var UserCurrentEvent = make(map[int64]*Steps)
 
 func NewUserEvent(db *sql.DB, message *tgbotapi.Message, bot *tgbotapi.BotAPI, rerunEvents chan any) *UserEvent {
-	return &UserEvent{Db: data.NewData(db), Message: message, Bot: bot, RerunEvents: rerunEvents}
+	return &UserEvent{Data: data.NewData(db), Message: message, BotAPI: bot, RerunEvents: rerunEvents}
 }
 
 const (
@@ -63,7 +63,7 @@ func (u UserEvent) HandleCommand() {
 		return
 	}
 
-	u.Db.AddUser(u.Message.From.ID)
+	u.Data.AddUser(u.Message.From.ID)
 
 	var currentCommand string
 	v, ok := UserCurrentEvent[u.Message.From.ID]

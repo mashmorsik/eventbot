@@ -16,7 +16,7 @@ type Bot struct {
 
 func NewBot(bot *tgbotapi.BotAPI, db *sql.DB, updateEventsChan chan any) *Bot {
 	if bot == nil {
-		panic("Bot is nil")
+		panic("BotAPI is nil")
 	}
 
 	return &Bot{bot: bot, db: db, rerunEvents: updateEventsChan}
@@ -29,9 +29,9 @@ func BotStart() *tgbotapi.BotAPI {
 		log.Panic(err)
 	}
 
-	bot.Debug = true
+	bot.Debug = false
 
-	log.Printf("Authorized on account %s", bot.Self.UserName)
+	//log.Printf("Authorized on account %s", bot.Self.UserName)
 
 	return bot
 }
