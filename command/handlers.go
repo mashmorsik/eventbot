@@ -3,8 +3,8 @@ package command
 import (
 	"errors"
 	"eventbot/Logger"
+	"eventbot/cron"
 	"eventbot/data"
-	"eventbot/pkg/loc"
 	sendresponse "eventbot/send-response"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"

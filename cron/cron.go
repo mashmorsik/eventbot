@@ -41,6 +41,7 @@ func RunScheduler(userEvent *command.UserEvent, data *data.Data) (*gocron.Schedu
 	//	return nil, fmt.Errorf("NewScheduler: %s", err)
 	//}
 
+	// добавлять тег к джобе с айди ивентом, создавать джоб в createtask функции
 	//один крон на все once
 	// не вычитывать ивенты, если там есть last-fired
 	_, err := s.Every(1).Minute().Do(func() {
