@@ -148,14 +148,38 @@ func (r *Data) DeleteUser(userId int64) {
 	}
 }
 
-func (r *Data) CreateEvent(userId int64, chatId int64, name string, timeDate time.Time, cron string) {
+func (r *Data) CreateEvent(userId int64, chatId int64, name string, timeDate time.Time, cron string) (int, error) {
+	var eventId int
 
-	sqlCreateEvent := `INSERT INTO events(user_id, chat_id, name, time_date, cron, last_fired)
-		VALUES($1, $2, $3, $4, $5, $6)`
-	_, err := r.db.Exec(sqlCreateEvent, userId, chatId, name, timeDate, cron, time.Time{})
+	sqlCreateEvent := `
+		INSERT INTO events(user_id, chat_id, name, time_date, cron, last_fired)
+		VALUES($1, $2, $3, $4, $5, $6)
+		RETURNING id`
+
+	rows, err := r.db.Query(sqlCreateEvent, userId, chatId, name, timeDate, cron, time.Time{})
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
+
+	for rows.Next() {
+		// FIXME: marshall into structure - events
+
+		if err = rows.Scan(&eventId); err != nil {
+			return 0, err
+		}
+		return eventId, nil
+	}
+
+	if err = rows.Err(); err != nil {
+		return 0, err
+	}
+
+	return eventId, nil
+
+	//_, err := r.db.Exec(sqlCreateEvent, userId, chatId, name, timeDate, cron, time.Time{})
+	//if err != nil {
+	//	panic(err)
+	//}
 }
 
 func (r *Data) GetEventsList(userId int64) (map[int]string, error) {

@@ -33,7 +33,7 @@ func main() {
 		RerunEvents: updateEventsChan,
 	}
 
-	s, err := cron.RunScheduler(&ue, dat)
+	_, err := cron.RunScheduler(&ue, dat)
 	if err != nil {
 		Logger.Sugar.Panic(err)
 	}
@@ -45,12 +45,12 @@ func main() {
 	//	}
 	//}()
 
-	go func() {
-		err = RerunSchedulerObserver(updateEventsChan, &ue, dat, s)
-		if err != nil {
-			Logger.Sugar.Panic(err)
-		}
-	}()
+	//go func() {
+	//	err = RerunSchedulerObserver(updateEventsChan, &ue, dat, s)
+	//	if err != nil {
+	//		Logger.Sugar.Panic(err)
+	//	}
+	//}()
 
 	bot.ReadMessage()
 }

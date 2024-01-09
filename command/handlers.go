@@ -3,10 +3,11 @@ package command
 import (
 	"errors"
 	"eventbot/Logger"
-	"eventbot/cron"
 	"eventbot/data"
+	"eventbot/pkg/loc"
 	sendresponse "eventbot/send-response"
 	"fmt"
+	"github.com/go-co-op/gocron"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"time"
 )
@@ -55,11 +56,21 @@ func (u UserEvent) handleNewEvent() error {
 			UserCurrentEvent[u.Message.From.ID].Time, UserCurrentEvent[u.Message.From.ID].Frequency)
 
 		// make it a struct
-		u.Data.CreateEvent(u.Message.From.ID, UserCurrentEvent[u.Message.From.ID].ChatId, UserCurrentEvent[u.Message.From.ID].Name,
+		eventId, err := u.Data.CreateEvent(u.Message.From.ID, UserCurrentEvent[u.Message.From.ID].ChatId, UserCurrentEvent[u.Message.From.ID].Name,
 			sendresponse.MakeDateTimeField(UserCurrentEvent[u.Message.From.ID].Date,
 				UserCurrentEvent[u.Message.From.ID].Time), cron)
+		if err != nil {
+			Logger.Sugar.Errorln("Couldn't get EventId from DB ", err)
+		}
 
-		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Your event has been successfully created."))
+		if cron != "once" {
+			_, err = u.setCronRepeatable(cron, UserCurrentEvent[u.Message.From.ID].Name, eventId)
+			if err != nil {
+				Logger.Sugar.Errorln("Couldn't create new cron job ", err)
+			}
+		}
+
+		_, err = u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Your event has been successfully created."))
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -69,6 +80,34 @@ func (u UserEvent) handleNewEvent() error {
 
 	return nil
 }
+
+func (u UserEvent) setCronRepeatable(cron string, eventName string, eventId int) (*gocron.Scheduler, error) {
+	s := gocron.NewScheduler(loc.MskLoc())
+	s.TagsUnique()
+
+	s.Cron(cron).Tag(string(rune(eventId))).Do(func() {
+		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Don't forget about "+eventName))
+		if err != nil {
+			fmt.Println(err)
+		}
+	})
+
+	s.StartAsync()
+
+	return s, nil
+}
+
+//func (u UserEvent) setCronForOnce() error {
+//	s := gocron.NewScheduler(loc.MskLoc())
+//
+//	s.Every(1).Minute().Do(func() {
+//		err := u.HandleOnceReminder()
+//		if err != nil {
+//			Logger.Sugar.Errorln("Couldn't create cron job with one time event.")
+//		}
+//	})
+//	return nil
+//}
 
 func (u UserEvent) handleMyEvents() error {
 	userId := u.Message.From.ID
