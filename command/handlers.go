@@ -76,19 +76,26 @@ func (u UserEvent) handleNewEvent() error {
 		}
 		delete(UserCurrentEvent, u.Message.From.ID)
 	}
-	u.RerunEvents <- NewEventCommand
 
 	return nil
 }
 
 func (u UserEvent) setCronRepeatable(cron string, eventName string, eventId int) (*gocron.Scheduler, error) {
-	s := gocron.NewScheduler(loc.MskLoc())
+	s, err := u.RunScheduler()
+	if err != nil {
+		Logger.Sugar.Errorln("Couldn't get scheduler")
+	}
+	//s := u.Scheduler(loc.MskLoc())
 	s.TagsUnique()
 
 	s.Cron(cron).Tag(string(rune(eventId))).Do(func() {
-		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Don't forget about "+eventName))
+		_, err = u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Don't forget about "+eventName))
 		if err != nil {
 			fmt.Println(err)
+		}
+		err = u.Data.SetLastFired(time.Now(), eventId)
+		if err != nil {
+			Logger.Sugar.Errorln("Couldn't set last fired value for repeating event.")
 		}
 	})
 
@@ -96,18 +103,6 @@ func (u UserEvent) setCronRepeatable(cron string, eventName string, eventId int)
 
 	return s, nil
 }
-
-//func (u UserEvent) setCronForOnce() error {
-//	s := gocron.NewScheduler(loc.MskLoc())
-//
-//	s.Every(1).Minute().Do(func() {
-//		err := u.HandleOnceReminder()
-//		if err != nil {
-//			Logger.Sugar.Errorln("Couldn't create cron job with one time event.")
-//		}
-//	})
-//	return nil
-//}
 
 func (u UserEvent) handleMyEvents() error {
 	userId := u.Message.From.ID
@@ -153,7 +148,7 @@ func (u UserEvent) handleEdit() error {
 			eventsList += item
 		}
 
-		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Which event do you want to edit? \n"+eventsList))
+		_, err = u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Which event do you want to edit? \n"+eventsList))
 		return err
 	}
 	if u.Message.Text == "" {
@@ -173,22 +168,22 @@ func (u UserEvent) handleEdit() error {
 		}
 		fmt.Println(UserCurrentEvent[u.Message.From.ID].EventId)
 		v.CurrentStep = NameStep
-		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForName()))
+		_, err = u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForName()))
 		return err
 	case NameStep:
 		UserCurrentEvent[u.Message.From.ID].Name = u.Message.Text
 		v.CurrentStep = DateStep
-		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForDate()))
+		_, err = u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForDate()))
 		return err
 	case DateStep:
 		UserCurrentEvent[u.Message.From.ID].Date = u.Message.Text
 		v.CurrentStep = TimeStep
-		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForTime()))
+		_, err = u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskForTime()))
 		return err
 	case TimeStep:
 		UserCurrentEvent[u.Message.From.ID].Time = u.Message.Text
 		v.CurrentStep = FrequencyStep
-		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskHowFrequently()))
+		_, err = u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, sendresponse.AskHowFrequently()))
 		return err
 	case FrequencyStep:
 		UserCurrentEvent[u.Message.From.ID].Frequency = u.Message.Text
@@ -203,13 +198,26 @@ func (u UserEvent) handleEdit() error {
 			sendresponse.MakeDateTimeField(UserCurrentEvent[u.Message.From.ID].Date,
 				UserCurrentEvent[u.Message.From.ID].Time), cron)
 
-		_, err := u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Your event has been successfully edited."))
+		s := u.Scheduler.Sc()
+
+		if cron != "once" {
+			err = s.RemoveByTag(string(rune(UserCurrentEvent[u.Message.From.ID].EventId)))
+			if err != nil {
+				Logger.Sugar.Errorln("Couldn't remove cron job after editing event.")
+			}
+			_, err = u.setCronRepeatable(cron, UserCurrentEvent[u.Message.From.ID].Name, UserCurrentEvent[u.Message.From.ID].EventId)
+			if err != nil {
+				Logger.Sugar.Errorln("Couldn't create cron job after editing.")
+			}
+		}
+
+		_, err = u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Your event has been successfully edited."))
 		if err != nil {
-			fmt.Println(err)
+			Logger.Sugar.Errorln("Couldn't send message after editing event.")
 		}
 		delete(UserCurrentEvent, u.Message.From.ID)
 	}
-	u.RerunEvents <- EditCommand
+
 	return nil
 }
 
@@ -221,6 +229,7 @@ func (u UserEvent) handleDisable() error {
 
 	userId := u.Message.From.ID
 
+	// get only current user events
 	eventsName, err := u.Data.GetAllEvents()
 	if err != nil {
 		return err
@@ -251,21 +260,28 @@ func (u UserEvent) handleDisable() error {
 		for _, e := range eventsName {
 			if e.Name == u.Message.Text {
 				eventId = e.EventId
-				fmt.Println(eventId)
+
+				u.Data.DisabledTrue(eventId)
+				_, err = u.BotAPI.Send(tgbotapi.NewMessage(userId, "Event disabled"))
+				if err != nil {
+					return err
+				}
+
+				s := u.Scheduler.Sc()
+				if e.Cron != "once" {
+					err = s.RemoveByTag(string(rune(eventId)))
+					if err != nil {
+						Logger.Sugar.Errorln("Couldn't remove cron job after editing event.")
+					}
+				}
 			}
-		}
 
-		fmt.Println(u.Message.Text, eventId)
-
-		u.Data.DisabledTrue(eventId)
-		_, err = u.BotAPI.Send(tgbotapi.NewMessage(userId, "Event disabled"))
-		if err != nil {
-			return err
 		}
 
 		return nil
 	}
-	u.RerunEvents <- DisableCommand
+	delete(UserCurrentEvent, u.Message.From.ID)
+
 	return nil
 }
 
@@ -282,7 +298,7 @@ func (u UserEvent) handleEnable() error {
 		return err
 	}
 
-	v, ok := UserCurrentEvent[userId]
+	_, ok := UserCurrentEvent[userId]
 	if !ok {
 		UserCurrentEvent[userId] = &Steps{
 			CurrentCommand: EnableCommand,
@@ -308,27 +324,32 @@ func (u UserEvent) handleEnable() error {
 		}
 	}
 
-	if v.CurrentStep == NameStep {
+	if v, _ := UserCurrentEvent[userId]; v.CurrentStep == NameStep {
 		var eventId int
 
 		for _, e := range eventsName {
 			if e.Name == u.Message.Text {
 				eventId = e.EventId
-				fmt.Println(eventId)
+
+				u.Data.DisabledFalse(eventId)
+				_, err = u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Event enabled."))
+				if err != nil {
+					return err
+				}
+
+				if e.Cron != "once" {
+					_, err = u.setCronRepeatable(e.Cron, e.Name, eventId)
+					if err != nil {
+						Logger.Sugar.Errorln("Couldn't create cron job after editing.")
+					}
+				}
 			}
-		}
-
-		fmt.Println(u.Message.Text, eventId)
-
-		u.Data.DisabledFalse(eventId)
-		_, err = u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Event enabled."))
-		if err != nil {
-			return err
 		}
 
 		return nil
 	}
-	u.RerunEvents <- EnableCommand
+	delete(UserCurrentEvent, u.Message.From.ID)
+
 	return nil
 }
 
@@ -385,7 +406,6 @@ func (u UserEvent) handleDelete() error {
 		return nil
 	}
 
-	u.RerunEvents <- DeleteCommand
 	return nil
 }
 
@@ -398,7 +418,6 @@ func (u UserEvent) handleDeleteAll() error {
 		fmt.Println(err)
 	}
 
-	u.RerunEvents <- DeleteAllCommand
 	return nil
 }
 
@@ -455,12 +474,25 @@ func (u UserEvent) HandleCronResponse(chatId int64, name string, eventId int) er
 			}
 		}
 	}
+
 	return nil
-	//_, err := u.BotAPI.Send(tgbotapi.NewMessage(chatId, "Don't forget about "+name))
-	//err = u.Data.SetLastFired(time.Now(), eventId)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//return nil
+}
+
+func (u UserEvent) RunScheduler() (*gocron.Scheduler, error) {
+	sched := u.Scheduler.Sc()
+
+	_, err := sched.Every(1).Minute().Do(func() {
+		Logger.Sugar.Infoln("HandleOnceReminder fired")
+		err := u.HandleOnceReminder()
+		if err != nil {
+			Logger.Sugar.Errorln("HandleOnceReminder failed", err)
+		}
+	})
+	if err != nil {
+		Logger.Sugar.Errorln("Couldn't create job")
+	}
+
+	sched.StartAsync()
+
+	return sched, nil
 }

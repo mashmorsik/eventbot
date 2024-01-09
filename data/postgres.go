@@ -265,7 +265,7 @@ func (r *Data) GetAllEvents() (map[int]*Event, error) {
 func (r *Data) GetOnceNotFired() (map[int]*Event, error) {
 	sqlGetOnceNotFired := `
 	SELECT * FROM events
-	WHERE last_fired = $1 and cron = $2`
+	WHERE last_fired = $1 and cron = $2 and disabled = false`
 
 	rows, err := r.db.Query(sqlGetOnceNotFired, time.Time{}, "once")
 	if err != nil {
@@ -311,10 +311,10 @@ func (r *Data) GetOnceNotFired() (map[int]*Event, error) {
 func (r *Data) UpdateEvent(eventId int, name string, timeDate time.Time, cron string) {
 	sqlUpdateEvent := `
 	UPDATE events
-	SET name = $1, time_date = $2, cron = $3
-	WHERE id = $4`
+	SET name = $1, time_date = $2, cron = $3, last_fired = $4
+	WHERE id = $5`
 
-	_, err := r.db.Exec(sqlUpdateEvent, name, timeDate, cron, eventId)
+	_, err := r.db.Exec(sqlUpdateEvent, name, timeDate, cron, time.Time{}, eventId)
 	if err != nil {
 		panic(err)
 	}
@@ -341,48 +341,6 @@ func (r *Data) DeleteAllEvents(userId int64) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func (r *Data) FindRemindEvent() (map[int]*Event, error) {
-	sqlFindRemindEvent := `
-	SELECT id, chat_id, name FROM events
-	WHERE time_date < $1 and fired = false`
-
-	loc, _ := time.LoadLocation("Europe/Moscow")
-	currentTime := time.Now().In(loc)
-	//currentTime := time.Now()
-	rows, err := r.db.Query(sqlFindRemindEvent, currentTime)
-	if err != nil {
-		return nil, err
-	}
-	defer func(rows *sql.Rows) {
-		if err := rows.Close(); err != nil {
-			panic(err)
-			return
-		}
-	}(rows)
-
-	var currentEvents = make(map[int]*Event)
-	var id int
-	var chatId int64
-	var name string
-
-	for rows.Next() {
-		if err := rows.Scan(&id, &chatId, &name); err != nil {
-			return nil, err
-		}
-		currentEvents[id] = &Event{
-			Name:   name,
-			ChatId: chatId,
-		}
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	fmt.Println("This is the request")
-	fmt.Println(currentEvents)
-	return currentEvents, nil
 }
 
 func (r *Data) DisabledTrue(eventId int) {

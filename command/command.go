@@ -2,9 +2,11 @@ package command
 
 import (
 	"database/sql"
+	"eventbot/cron"
 	"eventbot/data"
 	sendresponse "eventbot/send-response"
 	"fmt"
+	"github.com/go-co-op/gocron"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
@@ -14,6 +16,7 @@ type (
 		Message     *tgbotapi.Message
 		BotAPI      *tgbotapi.BotAPI
 		RerunEvents chan any
+		Scheduler   *cron.Scheduler
 	}
 
 	Steps struct {
@@ -34,8 +37,8 @@ type (
 
 var UserCurrentEvent = make(map[int64]*Steps)
 
-func NewUserEvent(db *sql.DB, message *tgbotapi.Message, bot *tgbotapi.BotAPI, rerunEvents chan any) *UserEvent {
-	return &UserEvent{Data: data.NewData(db), Message: message, BotAPI: bot, RerunEvents: rerunEvents}
+func NewUserEvent(db *sql.DB, message *tgbotapi.Message, bot *tgbotapi.BotAPI, rerunEvents chan any, sc *gocron.Scheduler) *UserEvent {
+	return &UserEvent{Data: data.NewData(db), Message: message, BotAPI: bot, RerunEvents: rerunEvents, Scheduler: cron.NewScheduler(sc)}
 }
 
 const (

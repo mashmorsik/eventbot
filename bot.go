@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"eventbot/command"
+	"github.com/go-co-op/gocron"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
 	"os"
@@ -12,14 +13,15 @@ type Bot struct {
 	bot         *tgbotapi.BotAPI
 	db          *sql.DB
 	rerunEvents chan any
+	sc          *gocron.Scheduler
 }
 
-func NewBot(bot *tgbotapi.BotAPI, db *sql.DB, updateEventsChan chan any) *Bot {
+func NewBot(bot *tgbotapi.BotAPI, db *sql.DB, updateEventsChan chan any, sc *gocron.Scheduler) *Bot {
 	if bot == nil {
 		panic("BotAPI is nil")
 	}
 
-	return &Bot{bot: bot, db: db, rerunEvents: updateEventsChan}
+	return &Bot{bot: bot, db: db, rerunEvents: updateEventsChan, sc: sc}
 }
 
 func BotStart() *tgbotapi.BotAPI {
@@ -43,7 +45,7 @@ func (b *Bot) ReadMessage() {
 
 	for update := range updates {
 		if update.Message != nil {
-			command.NewUserEvent(b.db, update.Message, b.bot, b.rerunEvents).HandleCommand()
+			command.NewUserEvent(b.db, update.Message, b.bot, b.rerunEvents, b.sc).HandleCommand()
 		}
 	}
 }
