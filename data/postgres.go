@@ -380,3 +380,61 @@ func (r *Data) SetLastFired(lastFired time.Time, eventId int) error {
 
 	return nil
 }
+
+//func (r *Data) AddCron(eventId int, jobStruct *gocron.Job) error {
+//	sqlAddCron := `
+//	INSERT INTO cron(id, cron)
+//	VALUES($1, $2)`
+//
+//	cronJSON, err := json.Marshal(jobStruct)
+//	if err != nil {
+//		Logger.Sugar.Errorln("Coudn't marshal JSON.")
+//	}
+//
+//	_, err = r.db.Exec(sqlAddCron, eventId, cronJSON)
+//	if err != nil {
+//		return err
+//	}
+//
+//	return nil
+//}
+
+//func (r *Data) GetCrons() (map[int]*gocron.Job, error) {
+//	sqlGetCrons := `
+//	SELECT * FROM cron`
+//
+//	rows, err := r.db.Query(sqlGetCrons)
+//	if err != nil {
+//		return nil, err
+//	}
+//	defer func(rows *sql.Rows) {
+//		if err = rows.Close(); err != nil {
+//			panic(err)
+//		}
+//	}(rows)
+//
+//	cronsJSON := make(map[int]json.RawMessage)
+//
+//	var (
+//		id       int
+//		cronJSON json.RawMessage
+//		cronMap  map[int]*gocron.Job
+//	)
+//
+//	for rows.Next() {
+//		if err = rows.Scan(&id, &cronJSON); err != nil {
+//			return nil, err
+//		}
+//		cronsJSON[id] = cronJSON
+//	}
+//
+//	for eventId, j := range cronsJSON {
+//		var Job *gocron.Job
+//		m := json.Unmarshal(j, &Job)
+//		cronMap[eventId] = Job
+//
+//		return nil, m
+//	}
+//
+//	return cronMap, nil
+//}
