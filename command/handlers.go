@@ -62,6 +62,7 @@ func (u UserEvent) handleNewEvent() error {
 		if err != nil {
 			Logger.Sugar.Errorln("Couldn't get EventId from DB ", err)
 		}
+		fmt.Println(eventId)
 
 		if cron != "once" {
 			_, err = u.setCronRepeatable(cron, u.Message.From.ID, UserCurrentEvent[u.Message.From.ID].Name, eventId)
@@ -106,11 +107,11 @@ func (u UserEvent) handleMyEvents() error {
 	userId := u.Message.From.ID
 	db := data.NewData(data.MustConnectPostgres())
 
-	list, _ := db.GetEventsList(userId)
+	list, _ := db.GetUsersEvents(userId)
 	var eventslist string
 
 	for _, event := range list {
-		item := "\n/" + event
+		item := "\n/" + event.Name
 		eventslist += item
 	}
 
@@ -126,10 +127,10 @@ func (u UserEvent) handleMyEvents() error {
 func (u UserEvent) handleEdit() error {
 	userId := u.Message.From.ID
 
-	var list map[int]string
+	var list map[int]*data.Event
 	var eventsList string
 
-	list, err := u.Data.GetEventsList(userId)
+	list, err := u.Data.GetUsersEvents(userId)
 	if err != nil {
 		return err
 	}
@@ -139,10 +140,11 @@ func (u UserEvent) handleEdit() error {
 		UserCurrentEvent[userId] = &Steps{
 			CurrentCommand: EditCommand,
 			CurrentStep:    EditNameStep,
+			ChatId:         u.Message.Chat.ID,
 		}
 
 		for _, event := range list {
-			item := "\n" + event
+			item := "\n" + event.Name
 			eventsList += item
 		}
 
@@ -159,7 +161,7 @@ func (u UserEvent) handleEdit() error {
 
 		UserCurrentEvent[u.Message.From.ID].EditName = u.Message.Text
 		for id, e := range list {
-			if e == UserCurrentEvent[u.Message.From.ID].EditName {
+			if e.Name == UserCurrentEvent[u.Message.From.ID].EditName {
 				UserCurrentEvent[u.Message.From.ID].EventId = id
 				fmt.Println(UserCurrentEvent[u.Message.From.ID].EventId)
 			}
@@ -228,7 +230,7 @@ func (u UserEvent) handleDisable() error {
 	userId := u.Message.From.ID
 
 	// get only current user events
-	eventsName, err := u.Data.GetAllEvents()
+	eventsName, err := u.Data.GetUsersEvents(userId)
 	if err != nil {
 		return err
 	}
@@ -250,6 +252,7 @@ func (u UserEvent) handleDisable() error {
 		if err != nil {
 			return err
 		}
+		return nil
 	}
 
 	if v, _ := UserCurrentEvent[userId]; v.CurrentStep == NameStep {
@@ -277,7 +280,6 @@ func (u UserEvent) handleDisable() error {
 		delete(UserCurrentEvent, userId)
 		return nil
 	}
-
 	return nil
 }
 
@@ -289,7 +291,7 @@ func (u UserEvent) handleEnable() error {
 
 	userId := u.Message.From.ID
 
-	eventsName, err := u.Data.GetAllEvents()
+	eventsName, err := u.Data.GetUsersEvents(userId)
 	if err != nil {
 		return err
 	}
@@ -318,6 +320,7 @@ func (u UserEvent) handleEnable() error {
 				return err
 			}
 		}
+		return nil
 	}
 
 	if v, _ := UserCurrentEvent[userId]; v.CurrentStep == NameStep {
@@ -351,12 +354,12 @@ func (u UserEvent) handleEnable() error {
 func (u UserEvent) handleDelete() error {
 	var (
 		eventsList string
-		eventsName map[int]string
+		eventsName map[int]*data.Event
 	)
 
 	userId := u.Message.From.ID
 
-	eventsName, err := u.Data.GetEventsList(userId)
+	eventsName, err := u.Data.GetUsersEvents(userId)
 	if err != nil {
 		return err
 	}
@@ -369,7 +372,7 @@ func (u UserEvent) handleDelete() error {
 		}
 
 		for _, event := range eventsName {
-			eventsList += "\n" + event
+			eventsList += "\n" + event.Name
 		}
 
 		_, err = u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Which event do you want to delete? \n"+eventsList))
@@ -384,7 +387,7 @@ func (u UserEvent) handleDelete() error {
 		var eventId int
 
 		for id, e := range eventsName {
-			if e == u.Message.Text {
+			if e.Name == u.Message.Text {
 				eventId = id
 				fmt.Println(eventId)
 			}
@@ -463,7 +466,7 @@ func (u UserEvent) RunScheduler() (*gocron.Scheduler, error) {
 
 	jobs := sched.Jobs()
 	if len(jobs) == 1 {
-		events, err := u.Data.GetAllEvents()
+		events, err := u.Data.GetCronMultipleActive()
 		if err != nil {
 			Logger.Sugar.Errorln("Couldn't get events from DB.")
 		}

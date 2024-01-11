@@ -99,8 +99,7 @@ func (r *Data) IsUser(userId int64) bool {
 	}
 }
 
-// FIXME add result erorr
-func (r *Data) AddUser(userId int64) {
+func (r *Data) AddUser(userId int64) error {
 	if r.IsUser(userId) == false {
 		sqlAddUser := `
 	INSERT INTO users(user_id)
@@ -112,44 +111,11 @@ func (r *Data) AddUser(userId int64) {
 		ra, _ := res.RowsAffected()
 		fmt.Printf("rows affected: %v", ra)
 	}
-}
-
-func (r *Data) GetUsersList() ([]int64, error) {
-	var UsersList []int64
-
-	sqlGetUsersList := `
-	SELECT * FROM users`
-
-	rows, err := r.db.Query(sqlGetUsersList)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var UserId int64
-		if err := rows.Scan(&UserId); err != nil {
-			return nil, err
-		}
-		UsersList = append(UsersList, UserId)
-	}
-	fmt.Println(UsersList)
-	return UsersList, nil
-}
-
-func (r *Data) DeleteUser(userId int64) {
-	sqlDeleteEvent := `
-	DELETE FROM users
-	WHERE user_id = $1`
-
-	_, err := r.db.Exec(sqlDeleteEvent, userId)
-	if err != nil {
-		panic(err)
-	}
+	return nil
 }
 
 func (r *Data) CreateEvent(userId int64, chatId int64, name string, timeDate time.Time, cron string) (int, error) {
-	var eventId int
+	var e Event
 
 	sqlCreateEvent := `
 		INSERT INTO events(user_id, chat_id, name, time_date, cron, last_fired)
@@ -162,101 +128,66 @@ func (r *Data) CreateEvent(userId int64, chatId int64, name string, timeDate tim
 	}
 
 	for rows.Next() {
-		// FIXME: marshall into structure - events
-
-		if err = rows.Scan(&eventId); err != nil {
+		if err = rows.Scan(&e.EventId); err != nil {
 			return 0, err
 		}
-		return eventId, nil
+		return e.EventId, nil
 	}
 
 	if err = rows.Err(); err != nil {
 		return 0, err
 	}
 
-	return eventId, nil
-
-	//_, err := r.db.Exec(sqlCreateEvent, userId, chatId, name, timeDate, cron, time.Time{})
-	//if err != nil {
-	//	panic(err)
-	//}
+	return e.EventId, nil
 }
 
-func (r *Data) GetEventsList(userId int64) (map[int]string, error) {
-	var EventsList = make(map[int]string)
+func (r *Data) GetUsersEvents(userId int64) (map[int]*Event, error) {
+	var EventsList = make(map[int]*Event)
 
 	sqlGetEventsList := `
-	SELECT id, name FROM events
+	SELECT id, name, time_date, cron, last_fired, disabled FROM events
 	WHERE user_id = $1`
 
 	rows, err := r.db.Query(sqlGetEventsList, userId)
 	if err != nil {
 		return nil, err
 	}
-	defer func(rows *sql.Rows) {
-		if err := rows.Close(); err != nil {
-			panic(err)
-			return
-		}
-	}(rows)
 
 	for rows.Next() {
-		// FIXME: marshall into structure - events
-		var eventName string
-		var id int
-		if err := rows.Scan(&id, &eventName); err != nil {
+		var e Event
+
+		if err = rows.Scan(&e.EventId, &e.Name, &e.TimeDate, &e.Cron, &e.LastFired, &e.Disabled); err != nil {
 			return nil, err
 		}
-		EventsList[id] = eventName
+		EventsList[e.EventId] = &e
 	}
 
-	if err := rows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	fmt.Println(EventsList)
+
 	return EventsList, nil
 }
 
-func (r *Data) GetAllEvents() (map[int]*Event, error) {
+func (r *Data) GetCronMultipleActive() (map[int]*Event, error) {
 	sqlFindRemindEvent := `
-	SELECT * FROM events`
+	SELECT * FROM events
+	WHERE cron != $1 and disabled = false`
 
 	rows, err := r.db.Query(sqlFindRemindEvent)
 	if err != nil {
 		return nil, err
 	}
-	defer func(rows *sql.Rows) {
-		if err = rows.Close(); err != nil {
-			panic(err)
-		}
-	}(rows)
 
 	var currentEvents = make(map[int]*Event)
-	var (
-		id        int
-		userId    int64
-		chatId    int64
-		name      string
-		timeDate  time.Time
-		cron      string
-		lastFired time.Time
-		disabled  bool
-	)
 
 	for rows.Next() {
-		if err = rows.Scan(&id, &userId, &chatId, &name, &timeDate, &cron, &lastFired, &disabled); err != nil {
+		var e Event
+
+		if err = rows.Scan(&e.EventId, &e.UserId, &e.ChatId, &e.Name, &e.TimeDate, &e.Cron, &e.LastFired, &e.Disabled); err != nil {
 			return nil, err
 		}
-		currentEvents[id] = &Event{
-			EventId:   id,
-			Name:      name,
-			ChatId:    chatId,
-			UserId:    userId,
-			TimeDate:  timeDate,
-			Cron:      cron,
-			LastFired: lastFired,
-			Disabled:  disabled,
-		}
+		currentEvents[e.EventId] = &e
 	}
 
 	return currentEvents, nil
@@ -271,44 +202,22 @@ func (r *Data) GetOnceNotFired() (map[int]*Event, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func(rows *sql.Rows) {
-		if err = rows.Close(); err != nil {
-			panic(err)
-		}
-	}(rows)
 
 	var currentEvents = make(map[int]*Event)
-	var (
-		id        int
-		userId    int64
-		chatId    int64
-		name      string
-		timeDate  time.Time
-		cron      string
-		lastFired time.Time
-		disabled  bool
-	)
 
 	for rows.Next() {
-		if err = rows.Scan(&id, &userId, &chatId, &name, &timeDate, &cron, &lastFired, &disabled); err != nil {
+		var e Event
+
+		if err = rows.Scan(&e.EventId, &e.UserId, &e.ChatId, &e.Name, &e.TimeDate, &e.Cron, &e.LastFired, &e.Disabled); err != nil {
 			return nil, err
 		}
-		currentEvents[id] = &Event{
-			EventId:   id,
-			Name:      name,
-			ChatId:    chatId,
-			UserId:    userId,
-			TimeDate:  timeDate,
-			Cron:      cron,
-			LastFired: lastFired,
-			Disabled:  disabled,
-		}
+		currentEvents[e.EventId] = &e
 	}
 
 	return currentEvents, nil
 }
 
-func (r *Data) UpdateEvent(eventId int, name string, timeDate time.Time, cron string) {
+func (r *Data) UpdateEvent(eventId int, name string, timeDate time.Time, cron string) error {
 	sqlUpdateEvent := `
 	UPDATE events
 	SET name = $1, time_date = $2, cron = $3, last_fired = $4
@@ -316,34 +225,36 @@ func (r *Data) UpdateEvent(eventId int, name string, timeDate time.Time, cron st
 
 	_, err := r.db.Exec(sqlUpdateEvent, name, timeDate, cron, time.Time{}, eventId)
 	if err != nil {
-		panic(err)
+		Logger.Sugar.Errorln("UpdateEvent failed.")
 	}
+	return nil
 }
 
-// FIXME: return error
-func (r *Data) DeleteEvent(eventId int) {
+func (r *Data) DeleteEvent(eventId int) error {
 	sqlDeleteEvent := `
 	DELETE FROM events
 	WHERE id = $1`
 
 	_, err := r.db.Exec(sqlDeleteEvent, eventId)
 	if err != nil {
-		panic(err)
+		Logger.Sugar.Errorln("DeleteEvent failed.")
 	}
+	return nil
 }
 
-func (r *Data) DeleteAllEvents(userId int64) {
+func (r *Data) DeleteAllEvents(userId int64) error {
 	sqlDeleteAllEvents := `
 	DELETE FROM events
 	WHERE user_id = $1`
 
 	_, err := r.db.Exec(sqlDeleteAllEvents, userId)
 	if err != nil {
-		panic(err)
+		Logger.Sugar.Errorln("DeleteAllEvents failed.")
 	}
+	return nil
 }
 
-func (r *Data) DisabledTrue(eventId int) {
+func (r *Data) DisabledTrue(eventId int) error {
 	sqlDisabledTrue := `
 	UPDATE events
 	SET disabled = true
@@ -351,8 +262,9 @@ func (r *Data) DisabledTrue(eventId int) {
 
 	_, err := r.db.Exec(sqlDisabledTrue, eventId)
 	if err != nil {
-		Logger.Sugar.Panic(err)
+		Logger.Sugar.Panic("DisabledTrue failed")
 	}
+	return nil
 }
 
 func (r *Data) DisabledFalse(eventId int) {
@@ -363,7 +275,7 @@ func (r *Data) DisabledFalse(eventId int) {
 
 	_, err := r.db.Exec(sqlDisabledFalse, eventId)
 	if err != nil {
-		Logger.Sugar.Panic(err)
+		Logger.Sugar.Panic("DisabledFalse failed.")
 	}
 }
 
@@ -375,66 +287,8 @@ func (r *Data) SetLastFired(lastFired time.Time, eventId int) error {
 
 	_, err := r.db.Exec(sqlDisabledFalse, lastFired, eventId)
 	if err != nil {
-		return err
+		Logger.Sugar.Panic("SetLastFired failed.")
 	}
 
 	return nil
 }
-
-//func (r *Data) AddCron(eventId int, jobStruct *gocron.Job) error {
-//	sqlAddCron := `
-//	INSERT INTO cron(id, cron)
-//	VALUES($1, $2)`
-//
-//	cronJSON, err := json.Marshal(jobStruct)
-//	if err != nil {
-//		Logger.Sugar.Errorln("Coudn't marshal JSON.")
-//	}
-//
-//	_, err = r.db.Exec(sqlAddCron, eventId, cronJSON)
-//	if err != nil {
-//		return err
-//	}
-//
-//	return nil
-//}
-
-//func (r *Data) GetCrons() (map[int]*gocron.Job, error) {
-//	sqlGetCrons := `
-//	SELECT * FROM cron`
-//
-//	rows, err := r.db.Query(sqlGetCrons)
-//	if err != nil {
-//		return nil, err
-//	}
-//	defer func(rows *sql.Rows) {
-//		if err = rows.Close(); err != nil {
-//			panic(err)
-//		}
-//	}(rows)
-//
-//	cronsJSON := make(map[int]json.RawMessage)
-//
-//	var (
-//		id       int
-//		cronJSON json.RawMessage
-//		cronMap  map[int]*gocron.Job
-//	)
-//
-//	for rows.Next() {
-//		if err = rows.Scan(&id, &cronJSON); err != nil {
-//			return nil, err
-//		}
-//		cronsJSON[id] = cronJSON
-//	}
-//
-//	for eventId, j := range cronsJSON {
-//		var Job *gocron.Job
-//		m := json.Unmarshal(j, &Job)
-//		cronMap[eventId] = Job
-//
-//		return nil, m
-//	}
-//
-//	return cronMap, nil
-//}

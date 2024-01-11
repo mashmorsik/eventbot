@@ -15,9 +15,3 @@ create table if not exists public.events
     last_fired     timestamp with time zone,
     disabled    bool                    default false
 );
-
-create table if not exists public.cron
-(
-    id      int primary key,
-    cron    json                       not null
-)
