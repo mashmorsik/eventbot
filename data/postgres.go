@@ -13,10 +13,6 @@ import (
 	"time"
 )
 
-type Data struct {
-	db *sql.DB
-}
-
 type Event struct {
 	EventId   int
 	UserId    int64
@@ -26,6 +22,10 @@ type Event struct {
 	Cron      string
 	LastFired time.Time
 	Disabled  bool
+}
+
+type Data struct {
+	db *sql.DB
 }
 
 func NewData(db *sql.DB) *Data {
@@ -141,7 +141,7 @@ func (r *Data) CreateEvent(userId int64, chatId int64, name string, timeDate tim
 	return e.EventId, nil
 }
 
-func (r *Data) GetUsersEvents(userId int64) (map[int]*Event, error) {
+func (r *Data) GetUserEvents(userId int64) (map[int]*Event, error) {
 	var EventsList = make(map[int]*Event)
 
 	sqlGetEventsList := `
