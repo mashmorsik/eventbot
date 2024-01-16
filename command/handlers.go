@@ -42,7 +42,10 @@ func (u UserEvent) HandleCommand() {
 
 	switch currentCommand {
 	case NewEventCommand:
-		u.handleNewEvent()
+		err = u.handleNewEvent()
+		if err != nil {
+			fmt.Println(err)
+		}
 	case MyEventsCommand:
 		err = u.handleMyEvents()
 		if err != nil {
@@ -333,8 +336,11 @@ func (u UserEvent) handleMyEvents() error {
 	var eventsList string
 
 	for _, event := range list {
-		item := "\n/" + event.Name
-		eventsList += item
+		if event.Disabled == true {
+			eventsList += "\n/" + event.Name + " disabled"
+		} else {
+			eventsList += "\n/" + event.Name
+		}
 	}
 
 	response := "Your events: \n" + eventsList
@@ -472,17 +478,17 @@ func (u UserEvent) handleDisable() error {
 						Logger.Sugar.Errorln("Couldn't remove cron job after editing event.")
 					}
 				}
+				delete(UserCurrentEvent, userId)
 				return err
 			}
 
 			if err = u.SendMessageUnknownEvent(u.Message.Chat.ID); err != nil {
 				return err
 			}
-
 			delete(UserCurrentEvent, userId)
 			return nil
 		}
-		delete(UserCurrentEvent, userId)
+
 		return nil
 	}
 	return nil
@@ -518,9 +524,15 @@ func (u UserEvent) handleEnable() error {
 			if err = u.SendMessage(u.Message.Chat.ID, "Which event do you want to enable? \n"+eventsList); err != nil {
 				return err
 			}
+			return nil
 		}
 
-		return u.SendMessage(u.Message.Chat.ID, "You don't have any disabled events.")
+		if err = u.SendMessage(u.Message.Chat.ID, "You don't have any disabled events."); err != nil {
+			return err
+		}
+
+		delete(UserCurrentEvent, userId)
+		return nil
 	}
 
 	if v, _ := UserCurrentEvent[userId]; v.CurrentStep == NameStep {
@@ -542,6 +554,8 @@ func (u UserEvent) handleEnable() error {
 						Logger.Sugar.Errorln("Couldn't create cron job after enabling event.")
 					}
 				}
+				delete(UserCurrentEvent, userId)
+				return err
 			}
 
 			if err = u.SendMessageUnknownEvent(u.Message.Chat.ID); err != nil {
@@ -551,7 +565,7 @@ func (u UserEvent) handleEnable() error {
 			delete(UserCurrentEvent, userId)
 			return nil
 		}
-		delete(UserCurrentEvent, u.Message.From.ID)
+
 		return nil
 	}
 
@@ -599,18 +613,19 @@ func (u UserEvent) handleDelete() error {
 				if err = u.SendMessage(u.Message.Chat.ID, "Event deleted"); err != nil {
 					return err
 				}
+				delete(UserCurrentEvent, u.Message.Chat.ID)
 				return nil
 			}
-
 			if err = u.SendMessageUnknownEvent(u.Message.Chat.ID); err != nil {
 				return err
 			}
 			delete(UserCurrentEvent, u.Message.Chat.ID)
 			return nil
 		}
+
 		return nil
 	}
-	delete(UserCurrentEvent, u.Message.Chat.ID)
+
 	return nil
 }
 

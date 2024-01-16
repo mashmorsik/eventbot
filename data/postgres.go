@@ -114,6 +114,47 @@ func (r *Data) AddUser(userId int64) error {
 	return nil
 }
 
+func (r *Data) DeleteUser(userId int64) error {
+	if r.IsUser(userId) == true {
+		sqlDeleteUser := `
+	DELETE FROM users
+	WHERE user_id = $1`
+		res, err := r.db.Exec(sqlDeleteUser, userId)
+		if err != nil {
+			panic(err)
+		}
+		ra, _ := res.RowsAffected()
+		fmt.Printf("rows affected: %v", ra)
+	}
+	return nil
+}
+
+func (r *Data) GetEvent(eventId int) (error, *Event) {
+	var e Event
+
+	sqlGetEvent := `
+	SELECT * FROM events
+	WHERE id = $1`
+
+	rows, err := r.db.Query(sqlGetEvent, eventId)
+	if err != nil {
+		return err, nil
+	}
+
+	for rows.Next() {
+		if err = rows.Scan(&e.EventId, &e.UserId, &e.ChatId, &e.Name, &e.TimeDate, &e.Cron, &e.LastFired, &e.Disabled); err != nil {
+			return err, nil
+		}
+		return err, &e
+	}
+
+	if err = rows.Err(); err != nil {
+		return err, nil
+	}
+
+	return nil, &e
+}
+
 func (r *Data) CreateEvent(userId int64, chatId int64, name string, timeDate time.Time, cron string) (int, error) {
 	var e Event
 
@@ -145,7 +186,7 @@ func (r *Data) GetUserEvents(userId int64) (map[int]*Event, error) {
 	var EventsList = make(map[int]*Event)
 
 	sqlGetEventsList := `
-	SELECT id, name, time_date, cron, last_fired, disabled FROM events
+	SELECT id, user_id, name, time_date, cron, last_fired, disabled FROM events
 	WHERE user_id = $1`
 
 	rows, err := r.db.Query(sqlGetEventsList, userId)
@@ -156,7 +197,7 @@ func (r *Data) GetUserEvents(userId int64) (map[int]*Event, error) {
 	for rows.Next() {
 		var e Event
 
-		if err = rows.Scan(&e.EventId, &e.Name, &e.TimeDate, &e.Cron, &e.LastFired, &e.Disabled); err != nil {
+		if err = rows.Scan(&e.EventId, &e.UserId, &e.Name, &e.TimeDate, &e.Cron, &e.LastFired, &e.Disabled); err != nil {
 			return nil, err
 		}
 		EventsList[e.EventId] = &e
@@ -226,6 +267,7 @@ func (r *Data) UpdateEvent(eventId int, name string, timeDate time.Time, cron st
 	_, err := r.db.Exec(sqlUpdateEvent, name, timeDate, cron, time.Time{}, eventId)
 	if err != nil {
 		Logger.Sugar.Errorln("UpdateEvent failed.")
+		return err
 	}
 	return nil
 }
@@ -235,10 +277,25 @@ func (r *Data) DeleteEvent(eventId int) error {
 	DELETE FROM events
 	WHERE id = $1`
 
-	_, err := r.db.Exec(sqlDeleteEvent, eventId)
+	result, err := r.db.Exec(sqlDeleteEvent, eventId)
 	if err != nil {
 		Logger.Sugar.Errorln("DeleteEvent failed.")
+		return err
 	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		Logger.Sugar.Errorln("rowsAffected error.")
+		return err
+	}
+
+	if rowsAffected == 0 {
+		Logger.Sugar.Errorln("No events with this id found.")
+		return errors.New("no events with this id found")
+	} else {
+		fmt.Printf("The SQL query affected %d rows.\n", rowsAffected)
+	}
+
 	return nil
 }
 
