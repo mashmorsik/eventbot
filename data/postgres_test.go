@@ -236,7 +236,11 @@ func TestData_UpdateEvent(t *testing.T) {
 
 func TestData_DeleteAllEvents(t *testing.T) {
 	db := data.NewData(MustConnectTest())
-	_, err := db.CreateEvent(int64(2080632730), int64(2080632730), "ChristmasParty", time.Time{}, "35 11 16 01 *")
+	err := db.AddUser(2080632730)
+	if err != nil {
+		Logger.Sugar.Errorln("Couldn't add user.")
+	}
+	_, err = db.CreateEvent(int64(2080632730), int64(2080632730), "ChristmasParty", time.Time{}, "35 11 16 01 *")
 	_, err = db.CreateEvent(int64(2080632730), int64(2080632730), "Holidays", time.Time{}, "20 12 14 02 *")
 	_, err = db.CreateEvent(int64(2080632730), int64(2080632730), "Daily", time.Time{}, "10 10 11 04 *")
 	if err != nil {
@@ -272,6 +276,137 @@ func TestData_DeleteAllEvents(t *testing.T) {
 
 			if tt.expected != result {
 				t.Error("DeleteAllEvents failed.")
+			}
+		})
+	}
+}
+
+func TestData_DisabledTrue(t *testing.T) {
+	db := data.NewData(MustConnectTest())
+	id, err := db.CreateEvent(int64(2080632730), int64(2080632730), "Daily", time.Time{}, "10 10 11 04 *")
+	if err != nil {
+		Logger.Sugar.Errorln("CreateEvent failed.")
+	}
+
+	testCases := []struct {
+		name     string
+		eventId  int
+		expected bool
+	}{
+		{"Disable existing event.", id, true},
+		{"Disable non-existing event.", -1, false},
+	}
+
+	var result bool
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			err = db.DisabledTrue(tt.eventId)
+			if err != nil {
+				t.Error("DisabledTrue failed.")
+			}
+			// returns an event with non-existing id
+			err, event := db.GetEvent(tt.eventId)
+			if err != nil {
+				Logger.Sugar.Errorln("GetEvent failed.")
+			}
+			if event == nil {
+				result = false
+			}
+			if event.Disabled == true {
+				result = true
+			}
+			if tt.expected != result {
+				t.Error("DisabledTrue failed.")
+			}
+		})
+	}
+}
+
+func TestData_DisabledFalse(t *testing.T) {
+	db := data.NewData(MustConnectTest())
+	id, err := db.CreateEvent(int64(2080632730), int64(2080632730), "Weekly", time.Time{}, "10 10 11 04 *")
+	err = db.DisabledTrue(id)
+	if err != nil {
+		Logger.Sugar.Errorln("DisabledTrue failed.")
+	}
+	if err != nil {
+		Logger.Sugar.Errorln("CreateEvent failed.")
+	}
+
+	testCases := []struct {
+		name     string
+		eventId  int
+		expected bool
+	}{
+		{"Enable existing event.", id, true},
+		{"Enable non-existing event.", -1, false},
+	}
+
+	var result bool
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			err = db.DisabledFalse(tt.eventId)
+			if err != nil {
+				t.Error("DisabledTrue failed.")
+			}
+			// returns an event with non-existing id
+			err, event := db.GetEvent(tt.eventId)
+			if err != nil {
+				Logger.Sugar.Errorln("GetEvent failed.")
+			}
+			if event == nil {
+				result = false
+			}
+			if event.Disabled == false {
+				result = true
+			}
+			if tt.expected != result {
+				t.Error("DisabledFalse failed.")
+			}
+		})
+	}
+}
+
+func TestData_SetLastFired(t *testing.T) {
+	db := data.NewData(MustConnectTest())
+	id, err := db.CreateEvent(int64(2080632730), int64(2080632730), "Daily", time.Time{}, "10 10 11 04 *")
+	if err != nil {
+		Logger.Sugar.Errorln("CreateEvent failed.")
+	}
+	timeDateStr, err := time.Parse("2006-01-02 15:04", "2023-12-31 23:59")
+
+	testCases := []struct {
+		name     string
+		eventId  int
+		timeDate time.Time
+		expected bool
+	}{
+		{"SetLastFired for an existing event valid data.", id, timeDateStr, true},
+		{"SetLastFired for a non-existing event.", -1, timeDateStr, false},
+	}
+
+	var result bool
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			err = db.SetLastFired(tt.timeDate, tt.eventId)
+			if err != nil {
+				t.Error("SetLastFired failed.")
+			}
+			err, event := db.GetEvent(tt.eventId)
+			if err != nil {
+				Logger.Sugar.Errorln("GetEvent failed.")
+			}
+			if event == nil {
+				result = false
+			}
+			if event.LastFired.Equal(tt.timeDate) {
+				result = true
+			}
+			if tt.expected != result {
+				t.Error("SetLastFired failed.")
 			}
 		})
 	}

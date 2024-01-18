@@ -141,18 +141,19 @@ func (r *Data) GetEvent(eventId int) (error, *Event) {
 		return err, nil
 	}
 
-	for rows.Next() {
+	if rows.Next() {
 		if err = rows.Scan(&e.EventId, &e.UserId, &e.ChatId, &e.Name, &e.TimeDate, &e.Cron, &e.LastFired, &e.Disabled); err != nil {
 			return err, nil
 		}
-		return err, &e
+		return nil, &e
 	}
 
-	if err = rows.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		return err, nil
 	}
 
-	return nil, &e
+	// No rows found, return nil for the event
+	return nil, nil
 }
 
 func (r *Data) CreateEvent(userId int64, chatId int64, name string, timeDate time.Time, cron string) (int, error) {
@@ -324,7 +325,7 @@ func (r *Data) DisabledTrue(eventId int) error {
 	return nil
 }
 
-func (r *Data) DisabledFalse(eventId int) {
+func (r *Data) DisabledFalse(eventId int) error {
 	sqlDisabledFalse := `
 	UPDATE events
 	SET disabled = false
@@ -334,6 +335,7 @@ func (r *Data) DisabledFalse(eventId int) {
 	if err != nil {
 		Logger.Sugar.Panic("DisabledFalse failed.")
 	}
+	return nil
 }
 
 func (r *Data) SetLastFired(lastFired time.Time, eventId int) error {

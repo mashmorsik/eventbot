@@ -67,17 +67,17 @@ func (u UserEvent) HandleCommand() {
 			fmt.Println(err)
 		}
 	case DeleteCommand:
-		err := u.handleDelete()
+		err = u.handleDelete()
 		if err != nil {
 			fmt.Println(err)
 		}
 	case DeleteAllCommand:
-		err := u.handleDeleteAll()
+		err = u.handleDeleteAll()
 		if err != nil {
 			fmt.Println(err)
 		}
 	default:
-		err := u.handleDefault()
+		err = u.handleDefault()
 		if err != nil {
 			fmt.Println(err)
 		}
