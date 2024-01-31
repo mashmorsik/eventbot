@@ -2,7 +2,7 @@ package main
 
 import (
 	"eventbot/Logger"
-	"eventbot/command"
+	"eventbot/api/telegram"
 	"eventbot/cron"
 	"eventbot/data"
 	"github.com/joho/godotenv"
@@ -23,11 +23,12 @@ func main() {
 	updateEventsChan := make(chan any)
 	sc := cron.StartScheduler()
 	s := cron.NewScheduler(sc)
+	// start app (grpc_proto)
 
 	botApi := BotStart()
 	bot := NewBot(BotStart(), db, updateEventsChan, sc)
 
-	ue := command.UserEvent{
+	ue := telegram.UserEvent{
 		Data:        dat,
 		Message:     nil,
 		BotAPI:      botApi,

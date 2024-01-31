@@ -28,6 +28,22 @@ type Data struct {
 	db *sql.DB
 }
 
+type DataInterface interface {
+	IsUser(userId int64) bool
+	AddUser(userId int64) error
+	DeleteUser(userId int64) error
+	GetEvent(eventId int) (error, *Event)
+	CreateEvent(userId int64, chatId int64, name string, timeDate time.Time, cron string) (int, error)
+	GetUserEvents(userId int64) (map[int]*Event, error)
+	GetOnceNotFired() (map[int]*Event, error)
+	UpdateEvent(eventId int, name string, timeDate time.Time, cron string) error
+	DeleteEvent(eventId int) error
+	DeleteAllEvents(userId int64) error
+	DisabledTrue(eventId int) error
+	DisabledFalse(eventId int) error
+	SetLastFired(lastFired time.Time, eventId int) error
+}
+
 func NewData(db *sql.DB) *Data {
 	if db == nil {
 		panic("db is nil")

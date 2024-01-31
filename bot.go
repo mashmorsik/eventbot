@@ -2,7 +2,7 @@ package main
 
 import (
 	"database/sql"
-	"eventbot/command"
+	"eventbot/api/telegram"
 	"github.com/go-co-op/gocron"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
@@ -45,7 +45,7 @@ func (b *Bot) ReadMessage() {
 
 	for update := range updates {
 		if update.Message != nil {
-			command.NewUserEvent(b.db, update.Message, b.bot, b.rerunEvents, b.sc).HandleCommand()
+			telegram.NewUserEvent(b.db, update.Message, b.bot, b.rerunEvents, b.sc).HandleCommand()
 		}
 	}
 }

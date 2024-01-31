@@ -1,9 +1,10 @@
-package command
+package telegram
 
 import (
 	"database/sql"
 	"eventbot/cron"
 	"eventbot/data"
+	"eventbot/internal/command"
 	"github.com/go-co-op/gocron"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -36,7 +37,7 @@ type (
 var UserCurrentEvent = make(map[int64]*Steps)
 
 func NewUserEvent(db *sql.DB, message *tgbotapi.Message, bot *tgbotapi.BotAPI, rerunEvents chan any, sc *gocron.Scheduler,
-) UserEventer {
+) command.UserEventer {
 	return UserEvent{
 		Data: data.NewData(db), Message: message, BotAPI: bot, RerunEvents: rerunEvents, Scheduler: cron.NewScheduler(sc),
 	}

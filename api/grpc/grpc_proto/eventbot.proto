@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package github.com.mashmorsik.eventbot.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/mashmorsik/eventbot;eventbotv1";
+
+// Events and users should be two different services in two different files?
+service Events {
+  rpc Create(CreateEventRequest) returns (CreateEventResponse);
+  rpc Edit(EditEventRequest) returns (google.protobuf.Empty);
+  rpc Delete(DeleteEventRequest) returns (google.protobuf.Empty);
+  rpc Get(GetEventsRequest) returns (GetEventsResponse);
+  rpc Disable(DisableEventRequest) returns (google.protobuf.Empty);
+  rpc Enable(EnableEventRequest) returns (google.protobuf.Empty);
+  rpc DeleteAll(DeleteAllRequest) returns (google.protobuf.Empty);
+}
+
+message CreateEventRequest {
+  int64 user_id = 1;
+  int64 chat_id = 2;
+  string name = 3;
+  google.protobuf.Timestamp time_date = 4;
+  string cron = 5;
+}
+
+message CreateEventResponse {
+  int32 event_id = 1;
+}
+
+message EditEventRequest {
+  int32 event_id = 1;
+  string name = 2;
+  google.protobuf.Timestamp time_date = 3;
+  string cron = 5;
+}
+
+message DeleteEventRequest {
+  int32 event_id = 1;
+}
+
+message Event {
+  int32 event_id = 1;
+  int64 user_id = 2;
+  string name = 3;
+  google.protobuf.Timestamp time_date = 4;
+  string cron = 5;
+  google.protobuf.Timestamp last_fired = 6;
+  bool disabled = 7;
+}
+
+message GetEventsRequest {
+  int64 user_id = 1;
+}
+
+message GetEventsResponse {
+  repeated EventsMap events = 1;
+
+  message EventsMap {
+    int32 key = 1;
+    Event value = 2;
+  }
+}
+
+message DisableEventRequest {
+  int32 event_id = 1;
+}
+
+message EnableEventRequest {
+  int32 event_id = 1;
+}
+
+message DeleteAllRequest {
+  int64 user_id = 1;
+}

@@ -1,11 +1,12 @@
-package command
+package telegram
 
 import (
 	"errors"
 	"eventbot/Logger"
+	sendresponse "eventbot/api/telegram/send-response"
 	"eventbot/data"
+	"eventbot/internal/command"
 	"eventbot/pkg/loc"
-	sendresponse "eventbot/send-response"
 	"fmt"
 	"github.com/go-co-op/gocron"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -193,7 +194,7 @@ func (u UserEvent) handleFrequencyStep(v *Steps, finalFunc string) error {
 		cron = sendresponse.StringToCron(v.Date, v.Time, v.Frequency)
 
 		if finalFunc == "createTask" {
-			eventId, err := u.Data.CreateEvent(userId, v.ChatId, v.Name, sendresponse.MakeDateTimeField(v.Date,
+			eventId, err := command.CreateNewEvent(userId, v.ChatId, v.Name, sendresponse.MakeDateTimeField(v.Date,
 				v.Time), cron)
 			if err != nil {
 				Logger.Sugar.Errorln("Couldn't get EventId from DB ", err)
@@ -212,7 +213,7 @@ func (u UserEvent) handleFrequencyStep(v *Steps, finalFunc string) error {
 				fmt.Println(err)
 			}
 		} else {
-			err := u.Data.UpdateEvent(v.EventId, v.Name, sendresponse.MakeDateTimeField(v.Date,
+			err := command.UpdateEvent(v.EventId, v.Name, sendresponse.MakeDateTimeField(v.Date,
 				v.Time), cron)
 			if err != nil {
 				return err
@@ -326,9 +327,8 @@ func (u UserEvent) setCronRepeatable(cron string, chatID int64, eventName string
 
 func (u UserEvent) handleMyEvents() error {
 	userId := u.Message.From.ID
-	db := data.NewData(data.MustConnectPostgres())
 
-	list, err := db.GetUserEvents(userId)
+	list, err := command.GetEvents(userId)
 	if err != nil {
 		return err
 	}
@@ -355,7 +355,7 @@ func (u UserEvent) handleEdit() error {
 	var list map[int]*data.Event
 	var eventsList string
 
-	list, err := u.Data.GetUserEvents(userId)
+	list, err := command.GetEvents(userId)
 	if err != nil {
 		return err
 	}
@@ -434,7 +434,7 @@ func (u UserEvent) handleDisable() error {
 
 	userId := u.Message.From.ID
 
-	eventsName, err := u.Data.GetUserEvents(userId)
+	eventsName, err := command.GetEvents(userId)
 	if err != nil {
 		return err
 	}
@@ -462,7 +462,7 @@ func (u UserEvent) handleDisable() error {
 			if e.Name == u.Message.Text {
 				eventId = e.EventId
 
-				err = u.Data.DisabledTrue(eventId)
+				err = command.DisableEvent(eventId)
 				if err != nil {
 					return err
 				}
@@ -502,7 +502,7 @@ func (u UserEvent) handleEnable() error {
 
 	userId := u.Message.From.ID
 
-	eventsName, err := u.Data.GetUserEvents(userId)
+	eventsName, err := command.GetEvents(userId)
 	if err != nil {
 		return err
 	}
@@ -542,7 +542,11 @@ func (u UserEvent) handleEnable() error {
 			if e.Name == u.Message.Text {
 				eventId = e.EventId
 
-				u.Data.DisabledFalse(eventId)
+				err = command.EnableEvent(eventId)
+				if err != nil {
+					Logger.Sugar.Errorln("EnableEvent failed.")
+					return err
+				}
 
 				if err = u.SendMessage(u.Message.Chat.ID, "Event enabled."); err != nil {
 					return err
@@ -580,14 +584,14 @@ func (u UserEvent) handleDelete() error {
 
 	userId := u.Message.From.ID
 
-	eventsName, err := u.Data.GetUserEvents(userId)
+	eventsName, err := command.GetEvents(userId)
 	if err != nil {
 		return err
 	}
 
 	v, ok := UserCurrentEvent[userId]
 	if !ok {
-		UserCurrentEvent[userId] = &Steps{
+		v = &Steps{
 			CurrentCommand: DeleteCommand,
 			CurrentStep:    DeleteNameStep,
 		}
@@ -606,7 +610,7 @@ func (u UserEvent) handleDelete() error {
 			if e.Name == u.Message.Text {
 				eventId = id
 
-				if err = u.Data.DeleteEvent(eventId); err != nil {
+				if err = command.DeleteEvent(eventId); err != nil {
 					return err
 				}
 
@@ -631,8 +635,7 @@ func (u UserEvent) handleDelete() error {
 
 func (u UserEvent) handleDeleteAll() error {
 	userId := u.Message.From.ID
-	db := data.NewData(data.MustConnectPostgres())
-	err := db.DeleteAllEvents(userId)
+	err := command.DeleteAllEvents(userId)
 	if err != nil {
 		return err
 	}
