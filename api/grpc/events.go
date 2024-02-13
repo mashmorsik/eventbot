@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type eventsClient struct {
+type EventsClient struct {
 	eventbotv12.EventsServer
 	c command.EventInterface
 }
@@ -22,7 +22,7 @@ type eventsClient struct {
 //	eventbotv1.EventsServer(gRPC)
 //}
 
-func (ec *eventsClient) Create(ctx context.Context, req *eventbotv12.CreateEventRequest,
+func (ec *EventsClient) Create(ctx context.Context, req *eventbotv12.CreateEventRequest,
 ) (*eventbotv12.CreateEventResponse, error) {
 	if req == nil {
 		err := errors.New("CreateEventRequest is nil")
@@ -46,7 +46,7 @@ func (ec *eventsClient) Create(ctx context.Context, req *eventbotv12.CreateEvent
 	}, nil
 }
 
-func (ec *eventsClient) Edit(ctx context.Context, req *eventbotv12.EditEventRequest) (*emptypb.Empty, error) {
+func (ec *EventsClient) Edit(ctx context.Context, req *eventbotv12.EditEventRequest) (*emptypb.Empty, error) {
 	if req == nil {
 		err := errors.New("EditEventRequest is nil")
 		Logger.Sugar.Errorln(err)
@@ -66,7 +66,7 @@ func (ec *eventsClient) Edit(ctx context.Context, req *eventbotv12.EditEventRequ
 	return &emptypb.Empty{}, nil
 }
 
-func (ec *eventsClient) Delete(ctx context.Context, req *eventbotv12.DeleteEventRequest) (*emptypb.Empty, error) {
+func (ec *EventsClient) Delete(ctx context.Context, req *eventbotv12.DeleteEventRequest) (*emptypb.Empty, error) {
 	if req == nil {
 		err := errors.New("DeleteEventRequest is nil")
 		Logger.Sugar.Errorln(err)
@@ -86,7 +86,7 @@ func (ec *eventsClient) Delete(ctx context.Context, req *eventbotv12.DeleteEvent
 	return &emptypb.Empty{}, nil
 }
 
-func (ec *eventsClient) Get(ctx context.Context, req *eventbotv12.GetEventsRequest) (*eventbotv12.GetEventsResponse, error) {
+func (ec *EventsClient) Get(ctx context.Context, req *eventbotv12.GetEventsRequest) (*eventbotv12.GetEventsResponse, error) {
 	if req == nil {
 		err := errors.New("GetEventsRequest is nil")
 		Logger.Sugar.Errorln(err)
@@ -122,7 +122,7 @@ func (ec *eventsClient) Get(ctx context.Context, req *eventbotv12.GetEventsReque
 	return &eventbotv12.GetEventsResponse{Events: eventsRes}, nil
 }
 
-func (ec *eventsClient) Disable(ctx context.Context, req *eventbotv12.DisableEventRequest) (*emptypb.Empty, error) {
+func (ec *EventsClient) Disable(ctx context.Context, req *eventbotv12.DisableEventRequest) (*emptypb.Empty, error) {
 	if req == nil {
 		err := errors.New("DisableEventRequest is nil")
 		Logger.Sugar.Errorln(err)
@@ -142,7 +142,7 @@ func (ec *eventsClient) Disable(ctx context.Context, req *eventbotv12.DisableEve
 	return &emptypb.Empty{}, nil
 }
 
-func (ec *eventsClient) Enable(ctx context.Context, req *eventbotv12.EnableEventRequest) (*emptypb.Empty, error) {
+func (ec *EventsClient) Enable(ctx context.Context, req *eventbotv12.EnableEventRequest) (*emptypb.Empty, error) {
 	if req == nil {
 		err := errors.New("EnableEventRequest is nil")
 		Logger.Sugar.Errorln(err)
@@ -162,7 +162,7 @@ func (ec *eventsClient) Enable(ctx context.Context, req *eventbotv12.EnableEvent
 	return &emptypb.Empty{}, nil
 }
 
-func (ec *eventsClient) DeleteAll(ctx context.Context, req *eventbotv12.DeleteAllRequest) (*emptypb.Empty, error) {
+func (ec *EventsClient) DeleteAll(ctx context.Context, req *eventbotv12.DeleteAllRequest) (*emptypb.Empty, error) {
 	if req == nil {
 		err := errors.New("EnableEventRequest is nil")
 		Logger.Sugar.Errorln(err)

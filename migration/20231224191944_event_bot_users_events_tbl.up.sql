@@ -1,3 +1,4 @@
+
 create table if not exists public.users
 (
     user_id bigint not null primary key

@@ -2,6 +2,7 @@ package command
 
 import (
 	"eventbot/Logger"
+	cronkafka "eventbot/cron"
 	"eventbot/data"
 	"time"
 )
@@ -26,6 +27,16 @@ func (e *EditEvents) CreateNewEvent(userId int64, chatId int64, eventName string
 		Logger.Sugar.Errorln("CreateEvent in DB failed.")
 	}
 
+	var event = &data.Event{
+		UserId:   userId,
+		Name:     eventName,
+		ChatId:   chatId,
+		TimeDate: timeDate,
+		Cron:     cron,
+		Disabled: false,
+	}
+
+	cronkafka.Producer(event)
 	return eventId, nil
 }
 
@@ -50,7 +61,7 @@ func (e *EditEvents) DeleteEvent(eventId int) error {
 func (e *EditEvents) GetEvents(userId int64) (map[int]*data.Event, error) {
 	events, err := e.db.GetUserEvents(userId)
 	if err != nil {
-		Logger.Sugar.Errorln("DeleteEvent failed")
+		Logger.Sugar.Errorln("GetEvents failed")
 	}
 
 	return events, err

@@ -15,7 +15,8 @@ type (
 		Message     *tgbotapi.Message
 		BotAPI      *tgbotapi.BotAPI
 		RerunEvents chan any
-		Scheduler   *cron.Scheduler
+		Scheduler   *cronkafka.Scheduler
+		command     command.EventInterface
 	}
 
 	Steps struct {
@@ -39,7 +40,7 @@ var UserCurrentEvent = make(map[int64]*Steps)
 func NewUserEvent(db *sql.DB, message *tgbotapi.Message, bot *tgbotapi.BotAPI, rerunEvents chan any, sc *gocron.Scheduler,
 ) command.UserEventer {
 	return UserEvent{
-		Data: data.NewData(db), Message: message, BotAPI: bot, RerunEvents: rerunEvents, Scheduler: cron.NewScheduler(sc),
+		Data: data.NewData(db), Message: message, BotAPI: bot, RerunEvents: rerunEvents, Scheduler: cronkafka.NewScheduler(sc),
 	}
 }
 

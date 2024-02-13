@@ -1,16 +1,11 @@
 package telegram
 
 import (
-	"errors"
 	"eventbot/Logger"
 	sendresponse "eventbot/api/telegram/send-response"
 	"eventbot/data"
-	"eventbot/internal/command"
-	"eventbot/pkg/loc"
 	"fmt"
-	"github.com/go-co-op/gocron"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"time"
 )
 
 const (
@@ -194,43 +189,43 @@ func (u UserEvent) handleFrequencyStep(v *Steps, finalFunc string) error {
 		cron = sendresponse.StringToCron(v.Date, v.Time, v.Frequency)
 
 		if finalFunc == "createTask" {
-			eventId, err := command.CreateNewEvent(userId, v.ChatId, v.Name, sendresponse.MakeDateTimeField(v.Date,
+			eventId, err := u.command.CreateNewEvent(userId, v.ChatId, v.Name, sendresponse.MakeDateTimeField(v.Date,
 				v.Time), cron)
 			if err != nil {
 				Logger.Sugar.Errorln("Couldn't get EventId from DB ", err)
 			}
 			fmt.Println(eventId)
 
-			if cron != "once" {
-				_, err = u.setCronRepeatable(cron, userId, v.Name, eventId)
-				if err != nil {
-					Logger.Sugar.Errorln("Couldn't create new cron job ", err)
-				}
-			}
+			// TODO setCronRepeatable should be after reading a message from kafka, not here
+			//if cron != "once" {
+			//	_, err = u.setCronRepeatable(cron, userId, v.Name, eventId)
+			//	if err != nil {
+			//		Logger.Sugar.Errorln("Couldn't create new cron job ", err)
+			//	}
+			//}
 
 			_, err = u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Your event has been successfully created."))
 			if err != nil {
 				fmt.Println(err)
 			}
 		} else {
-			err := command.UpdateEvent(v.EventId, v.Name, sendresponse.MakeDateTimeField(v.Date,
+			err := u.command.UpdateEvent(v.EventId, v.Name, sendresponse.MakeDateTimeField(v.Date,
 				v.Time), cron)
 			if err != nil {
 				return err
 			}
 
-			s := u.Scheduler.Sc()
-
-			if cron != "once" {
-				err = s.RemoveByTag(string(rune(v.EventId)))
-				if err != nil {
-					Logger.Sugar.Errorln("Couldn't remove cron job after editing event.")
-				}
-				_, err = u.setCronRepeatable(cron, u.Message.Chat.ID, v.Name, v.EventId)
-				if err != nil {
-					Logger.Sugar.Errorln("Couldn't create cron job after editing.")
-				}
-			}
+			// TODO updating crons should happen after reading a message from kafka
+			//if cron != "once" {
+			//	err = s.RemoveByTag(string(rune(v.EventId)))
+			//	if err != nil {
+			//		Logger.Sugar.Errorln("Couldn't remove cron job after editing event.")
+			//	}
+			//	_, err = u.setCronRepeatable(cron, u.Message.Chat.ID, v.Name, v.EventId)
+			//	if err != nil {
+			//		Logger.Sugar.Errorln("Couldn't create cron job after editing.")
+			//	}
+			//}
 
 			_, err = u.BotAPI.Send(tgbotapi.NewMessage(u.Message.Chat.ID, "Your event has been successfully edited."))
 			if err != nil {
@@ -297,38 +292,38 @@ func (u UserEvent) handleNewEvent() error {
 	return nil
 }
 
-func (u UserEvent) setCronRepeatable(cron string, chatID int64, eventName string, eventId int) (*gocron.Scheduler, error) {
-	s, err := u.RunScheduler()
-	if err != nil {
-		Logger.Sugar.Errorln("Couldn't get scheduler")
-		return nil, err
-	}
-
-	s.TagsUnique()
-
-	_, err = s.Cron(cron).Tag(string(rune(eventId))).Do(func() error {
-		if err = u.SendMessage(chatID, "Don't forget about "+eventName); err != nil {
-			return err
-		}
-
-		err = u.Data.SetLastFired(time.Now(), eventId)
-		if err != nil {
-			Logger.Sugar.Errorln("Couldn't set last fired value for repeating event.")
-			return err
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return s, nil
-}
+//func (u UserEvent) setCronRepeatable(cron string, chatID int64, eventName string, eventId int) (*gocron.Scheduler, error) {
+//	s, err := u.RunScheduler()
+//	if err != nil {
+//		Logger.Sugar.Errorln("Couldn't get scheduler")
+//		return nil, err
+//	}
+//
+//	s.TagsUnique()
+//
+//	_, err = s.Cron(cron).Tag(string(rune(eventId))).Do(func() error {
+//		if err = u.SendMessage(chatID, "Don't forget about "+eventName); err != nil {
+//			return err
+//		}
+//
+//		err = u.Data.SetLastFired(time.Now(), eventId)
+//		if err != nil {
+//			Logger.Sugar.Errorln("Couldn't set last fired value for repeating event.")
+//			return err
+//		}
+//		return nil
+//	})
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return s, nil
+//}
 
 func (u UserEvent) handleMyEvents() error {
 	userId := u.Message.From.ID
 
-	list, err := command.GetEvents(userId)
+	list, err := u.command.GetEvents(userId)
 	if err != nil {
 		return err
 	}
@@ -355,7 +350,7 @@ func (u UserEvent) handleEdit() error {
 	var list map[int]*data.Event
 	var eventsList string
 
-	list, err := command.GetEvents(userId)
+	list, err := u.command.GetEvents(userId)
 	if err != nil {
 		return err
 	}
@@ -434,7 +429,7 @@ func (u UserEvent) handleDisable() error {
 
 	userId := u.Message.From.ID
 
-	eventsName, err := command.GetEvents(userId)
+	eventsName, err := u.command.GetEvents(userId)
 	if err != nil {
 		return err
 	}
@@ -462,7 +457,7 @@ func (u UserEvent) handleDisable() error {
 			if e.Name == u.Message.Text {
 				eventId = e.EventId
 
-				err = command.DisableEvent(eventId)
+				err = u.command.DisableEvent(eventId)
 				if err != nil {
 					return err
 				}
@@ -471,13 +466,14 @@ func (u UserEvent) handleDisable() error {
 					return err
 				}
 
-				s := u.Scheduler.Sc()
-				if e.Cron != OncePeriod {
-					err = s.RemoveByTag(string(rune(eventId)))
-					if err != nil {
-						Logger.Sugar.Errorln("Couldn't remove cron job after editing event.")
-					}
-				}
+				// TODO should happen after reading a message from kafka
+				//s := u.Scheduler.Sc()
+				//if e.Cron != OncePeriod {
+				//	err = s.RemoveByTag(string(rune(eventId)))
+				//	if err != nil {
+				//		Logger.Sugar.Errorln("Couldn't remove cron job after editing event.")
+				//	}
+				//}
 				delete(UserCurrentEvent, userId)
 				return err
 			}
@@ -502,7 +498,7 @@ func (u UserEvent) handleEnable() error {
 
 	userId := u.Message.From.ID
 
-	eventsName, err := command.GetEvents(userId)
+	eventsName, err := u.command.GetEvents(userId)
 	if err != nil {
 		return err
 	}
@@ -542,7 +538,7 @@ func (u UserEvent) handleEnable() error {
 			if e.Name == u.Message.Text {
 				eventId = e.EventId
 
-				err = command.EnableEvent(eventId)
+				err = u.command.EnableEvent(eventId)
 				if err != nil {
 					Logger.Sugar.Errorln("EnableEvent failed.")
 					return err
@@ -552,12 +548,13 @@ func (u UserEvent) handleEnable() error {
 					return err
 				}
 
-				if e.Cron != "once" {
-					_, err = u.setCronRepeatable(e.Cron, u.Message.Chat.ID, e.Name, eventId)
-					if err != nil {
-						Logger.Sugar.Errorln("Couldn't create cron job after enabling event.")
-					}
-				}
+				// TODO after reading a message from kafka
+				//if e.Cron != "once" {
+				//	_, err = u.setCronRepeatable(e.Cron, u.Message.Chat.ID, e.Name, eventId)
+				//	if err != nil {
+				//		Logger.Sugar.Errorln("Couldn't create cron job after enabling event.")
+				//	}
+				//}
 				delete(UserCurrentEvent, userId)
 				return err
 			}
@@ -584,7 +581,7 @@ func (u UserEvent) handleDelete() error {
 
 	userId := u.Message.From.ID
 
-	eventsName, err := command.GetEvents(userId)
+	eventsName, err := u.command.GetEvents(userId)
 	if err != nil {
 		return err
 	}
@@ -610,7 +607,7 @@ func (u UserEvent) handleDelete() error {
 			if e.Name == u.Message.Text {
 				eventId = id
 
-				if err = command.DeleteEvent(eventId); err != nil {
+				if err = u.command.DeleteEvent(eventId); err != nil {
 					return err
 				}
 
@@ -635,7 +632,7 @@ func (u UserEvent) handleDelete() error {
 
 func (u UserEvent) handleDeleteAll() error {
 	userId := u.Message.From.ID
-	err := command.DeleteAllEvents(userId)
+	err := u.command.DeleteAllEvents(userId)
 	if err != nil {
 		return err
 	}
@@ -647,59 +644,60 @@ func (u UserEvent) handleDefault() error {
 	return u.SendMessage(u.Message.Chat.ID, sendresponse.WelcomeMessage())
 }
 
-func (u UserEvent) HandleOnceReminder() error {
-	events, err := u.Data.GetOnceNotFired()
-	if err != nil {
-		Logger.Sugar.Errorln("No not fired once events")
-		return err
-	}
-	for _, e := range events {
-		if time.Now().After(e.TimeDate.In(loc.CurrentLoc)) {
-			if err = u.SendMessage(e.ChatId, "Don't forget about "+e.Name); err != nil {
-				return err
-			}
+//func (u UserEvent) HandleOnceReminder() error {
+//	events, err := u.Data.GetOnceNotFired()
+//	if err != nil {
+//		Logger.Sugar.Errorln("No not fired once events")
+//		return err
+//	}
+//	for _, e := range events {
+//		if time.Now().After(e.TimeDate.In(loc.CurrentLoc)) {
+//			if err = u.SendMessage(e.ChatId, "Don't forget about "+e.Name); err != nil {
+//				return err
+//			}
+//
+//			err = u.Data.SetLastFired(time.Now(), e.EventId)
+//			if err != nil {
+//				return errors.New(fmt.Sprintf("u.Data.SetLastFired failed with error: %s", err))
+//			}
+//		}
+//	}
+//	return nil
+//}
 
-			err = u.Data.SetLastFired(time.Now(), e.EventId)
-			if err != nil {
-				return errors.New(fmt.Sprintf("u.Data.SetLastFired failed with error: %s", err))
-			}
-		}
-	}
-	return nil
-}
-
-func (u UserEvent) RunScheduler() (*gocron.Scheduler, error) {
-	scheduler := u.Scheduler.Sc()
-	defer scheduler.StartAsync()
-
-	_, err := scheduler.Every(1).Minute().Do(func() {
-		Logger.Sugar.Infoln("HandleOnceReminder fired")
-		err := u.HandleOnceReminder()
-		if err != nil {
-			Logger.Sugar.Errorln("HandleOnceReminder failed", err)
-		}
-	})
-	if err != nil {
-		Logger.Sugar.Errorln("Couldn't create job")
-	}
-
-	jobs := scheduler.Jobs()
-	if len(jobs) == 1 {
-		events, err := u.Data.GetCronMultipleActive()
-		if err != nil {
-			Logger.Sugar.Errorln("Couldn't get events from DB.")
-		}
-
-		for _, e := range events {
-			_, err = u.setCronRepeatable(e.Cron, e.ChatId, e.Name, e.EventId)
-			if err != nil {
-				Logger.Sugar.Errorln("Couldn't add cron jobs from DB.")
-			}
-		}
-	}
-
-	return scheduler, nil
-}
+//func (u UserEvent) RunScheduler() (*gocron.Scheduler, error) {
+//	scheduler := u.Scheduler.Sc()
+//	defer scheduler.StartAsync()
+//
+//	_, err := scheduler.Every(1).Minute().Do(func() {
+//		Logger.Sugar.Infoln("HandleOnceReminder fired")
+//		err := u.HandleOnceReminder()
+//		if err != nil {
+//			Logger.Sugar.Errorln("HandleOnceReminder failed", err)
+//		}
+//	})
+//	if err != nil {
+//		Logger.Sugar.Errorln("Couldn't create job")
+//	}
+//
+//	jobs := scheduler.Jobs()
+//	if len(jobs) == 1 {
+//		events, err := u.Data.GetCronMultipleActive()
+//		if err != nil {
+//			// if errors.Is(err, norows)
+//			Logger.Sugar.Errorf("Couldn't get events from DB, err: %v", err)
+//		}
+//
+//		for _, e := range events {
+//			_, err = u.setCronRepeatable(e.Cron, e.ChatId, e.Name, e.EventId)
+//			if err != nil {
+//				Logger.Sugar.Errorln("Couldn't add cron jobs from DB.")
+//			}
+//		}
+//	}
+//
+//	return scheduler, nil
+//}
 
 func (u UserEvent) SendMessage(chatID int64, text string) error {
 	if _, err := u.BotAPI.Send(tgbotapi.NewMessage(chatID, text)); err != nil {

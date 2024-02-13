@@ -1,14 +1,15 @@
 package app
 
 type App struct {
-	GRPCServer *app.App
+	GRPCServer *App
 }
 
 func New(grpcPort int) *App {
 	// init eventserver
-	grpcApp := app.New(grpcPort)
+	//grpcApp := app.New(grpcPort)
 
-	return &App{
-		GRPCServer: grpcApp,
-	}
+	//return &App{
+	//	GRPCServer: grpcApp,
+	//}
+	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"eventbot/api/telegram"
 	"eventbot/cron"
 	"eventbot/data"
+	"fmt"
 	"github.com/joho/godotenv"
 	"log"
 )
@@ -21,8 +22,8 @@ func main() {
 	db := data.MustConnectPostgres()
 	dat := data.NewData(db)
 	updateEventsChan := make(chan any)
-	sc := cron.StartScheduler()
-	s := cron.NewScheduler(sc)
+	sc := cronkafka.StartScheduler()
+	s := cronkafka.NewScheduler(sc)
 	// start app (grpc_proto)
 
 	botApi := BotStart()
@@ -36,10 +37,11 @@ func main() {
 		Scheduler:   s,
 	}
 
-	_, err := ue.RunScheduler()
-	if err != nil {
-		Logger.Sugar.Panic(err)
-	}
-
+	// FIXME
+	//_, err := ue.Data.RunScheduler()
+	//if err != nil {
+	//	Logger.Sugar.Panic(err)
+	//}
+	fmt.Println(ue)
 	bot.ReadMessage()
 }

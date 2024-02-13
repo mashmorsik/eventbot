@@ -36,6 +36,7 @@ type DataInterface interface {
 	CreateEvent(userId int64, chatId int64, name string, timeDate time.Time, cron string) (int, error)
 	GetUserEvents(userId int64) (map[int]*Event, error)
 	GetOnceNotFired() (map[int]*Event, error)
+	GetCronMultipleActive() (map[int]*Event, error)
 	UpdateEvent(eventId int, name string, timeDate time.Time, cron string) error
 	DeleteEvent(eventId int) error
 	DeleteAllEvents(userId int64) error
@@ -173,7 +174,7 @@ func (r *Data) GetEvent(eventId int) (error, *Event) {
 }
 
 func (r *Data) CreateEvent(userId int64, chatId int64, name string, timeDate time.Time, cron string) (int, error) {
-	var e Event
+	var e *Event
 
 	sqlCreateEvent := `
 		INSERT INTO events(user_id, chat_id, name, time_date, cron, last_fired)
@@ -232,7 +233,7 @@ func (r *Data) GetCronMultipleActive() (map[int]*Event, error) {
 	SELECT * FROM events
 	WHERE cron != $1 and disabled = false`
 
-	rows, err := r.db.Query(sqlFindRemindEvent)
+	rows, err := r.db.Query(sqlFindRemindEvent, "once")
 	if err != nil {
 		return nil, err
 	}
